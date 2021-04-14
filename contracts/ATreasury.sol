@@ -7,7 +7,7 @@ import "./Ownable.sol";
 /**
  * @dev Contract for treasury all tokens as fee and transfer to governance
  */
-contract VTreasury is Ownable {
+contract ATreasury is Ownable {
     using SafeMath for uint256;
 
     /**

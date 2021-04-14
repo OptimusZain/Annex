@@ -1,7 +1,6 @@
 pragma solidity ^0.5.16;
 
-import "./VToken.sol";
-import "./PriceOracle.sol";
+import "./AToken.sol"; import "./PriceOracle.sol";
 import "./ErrorReporter.sol";
 import "./Exponential.sol";
 import "./VAIControllerStorage.sol";
@@ -12,17 +11,17 @@ interface ComptrollerLensInterface {
     function protocolPaused() external view returns (bool);
     function mintedVAIs(address account) external view returns (uint);
     function vaiMintRate() external view returns (uint);
-    function venusVAIRate() external view returns (uint);
-    function venusAccrued(address account) external view returns(uint);
-    function getAssetsIn(address account) external view returns (VToken[] memory);
+    function annexVAIRate() external view returns (uint);
+    function annexAccrued(address account) external view returns(uint);
+    function getAssetsIn(address account) external view returns (AToken[] memory);
     function oracle() external view returns (PriceOracle);
 
-    function distributeVAIMinterVenus(address vaiMinter, bool distributeAll) external;
+    function distributeVAIMinterAnnex(address vaiMinter, bool distributeAll) external;
 }
 
 /**
- * @title Venus's VAI Comptroller Contract
- * @author Venus
+ * @title Annex's VAI Comptroller Contract
+ * @author Annex
  */
 contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Exponential {
 
@@ -39,8 +38,8 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
      */
     event RepayVAI(address repayer, uint repayVAIAmount);
 
-    /// @notice The initial Venus index for a market
-    uint224 public constant venusInitialIndex = 1e36;
+    /// @notice The initial Annex index for a market
+    uint224 public constant annexInitialIndex = 1e36;
 
     /*** Main Actions ***/
 
@@ -51,8 +50,8 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
             address minter = msg.sender;
 
             // Keep the flywheel moving
-            updateVenusVAIMintIndex();
-            ComptrollerLensInterface(address(comptroller)).distributeVAIMinterVenus(minter, false);
+            updateAnnexVAIMintIndex();
+            ComptrollerLensInterface(address(comptroller)).distributeVAIMinterAnnex(minter, false);
 
             uint oErr;
             MathError mErr;
@@ -92,8 +91,8 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
 
             address repayer = msg.sender;
 
-            updateVenusVAIMintIndex();
-            ComptrollerLensInterface(address(comptroller)).distributeVAIMinterVenus(repayer, false);
+            updateAnnexVAIMintIndex();
+            ComptrollerLensInterface(address(comptroller)).distributeVAIMinterAnnex(repayer, false);
 
             uint actualBurnAmount;
 
@@ -118,67 +117,67 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
     }
 
     /**
-     * @notice Initialize the VenusVAIState
+     * @notice Initialize the AnnexVAIState
      */
-    function _initializeVenusVAIState(uint blockNumber) external returns (uint) {
+    function _initializeAnnexVAIState(uint blockNumber) external returns (uint) {
         // Check caller is admin
         if (msg.sender != admin) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_COMPTROLLER_OWNER_CHECK);
         }
 
-        if (isVenusVAIInitialized == false) {
-            isVenusVAIInitialized = true;
+        if (isAnnexVAIInitialized == false) {
+            isAnnexVAIInitialized = true;
             uint vaiBlockNumber = blockNumber == 0 ? getBlockNumber() : blockNumber;
-            venusVAIState = VenusVAIState({
-                index: venusInitialIndex,
+            annexVAIState = AnnexVAIState({
+                index: annexInitialIndex,
                 block: safe32(vaiBlockNumber, "block number overflows")
             });
         }
     }
 
     /**
-     * @notice Accrue XVS to by updating the VAI minter index
+     * @notice Accrue ANX to by updating the VAI minter index
      */
-    function updateVenusVAIMintIndex() public returns (uint) {
-        uint vaiMinterSpeed = ComptrollerLensInterface(address(comptroller)).venusVAIRate();
+    function updateAnnexVAIMintIndex() public returns (uint) {
+        uint vaiMinterSpeed = ComptrollerLensInterface(address(comptroller)).annexVAIRate();
         uint blockNumber = getBlockNumber();
-        uint deltaBlocks = sub_(blockNumber, uint(venusVAIState.block));
+        uint deltaBlocks = sub_(blockNumber, uint(annexVAIState.block));
         if (deltaBlocks > 0 && vaiMinterSpeed > 0) {
             uint vaiAmount = VAI(getVAIAddress()).totalSupply();
-            uint venusAccrued = mul_(deltaBlocks, vaiMinterSpeed);
-            Double memory ratio = vaiAmount > 0 ? fraction(venusAccrued, vaiAmount) : Double({mantissa: 0});
-            Double memory index = add_(Double({mantissa: venusVAIState.index}), ratio);
-            venusVAIState = VenusVAIState({
+            uint annexAccrued = mul_(deltaBlocks, vaiMinterSpeed);
+            Double memory ratio = vaiAmount > 0 ? fraction(annexAccrued, vaiAmount) : Double({mantissa: 0});
+            Double memory index = add_(Double({mantissa: annexVAIState.index}), ratio);
+            annexVAIState = AnnexVAIState({
                 index: safe224(index.mantissa, "new index overflows"),
                 block: safe32(blockNumber, "block number overflows")
             });
         } else if (deltaBlocks > 0) {
-            venusVAIState.block = safe32(blockNumber, "block number overflows");
+            annexVAIState.block = safe32(blockNumber, "block number overflows");
         }
     }
 
     /**
-     * @notice Calculate XVS accrued by a VAI minter
-     * @param vaiMinter The address of the VAI minter to distribute XVS to
+     * @notice Calculate ANX accrued by a VAI minter
+     * @param vaiMinter The address of the VAI minter to distribute ANX to
      */
-    function calcDistributeVAIMinterVenus(address vaiMinter) public returns(uint, uint, uint, uint) {
+    function calcDistributeVAIMinterAnnex(address vaiMinter) public returns(uint, uint, uint, uint) {
         // Check caller is comptroller
         if (msg.sender != address(comptroller)) {
             return (fail(Error.UNAUTHORIZED, FailureInfo.SET_COMPTROLLER_OWNER_CHECK), 0, 0, 0);
         }
 
-        Double memory vaiMintIndex = Double({mantissa: venusVAIState.index});
-        Double memory vaiMinterIndex = Double({mantissa: venusVAIMinterIndex[vaiMinter]});
-        venusVAIMinterIndex[vaiMinter] = vaiMintIndex.mantissa;
+        Double memory vaiMintIndex = Double({mantissa: annexVAIState.index});
+        Double memory vaiMinterIndex = Double({mantissa: annexVAIMinterIndex[vaiMinter]});
+        annexVAIMinterIndex[vaiMinter] = vaiMintIndex.mantissa;
 
         if (vaiMinterIndex.mantissa == 0 && vaiMintIndex.mantissa > 0) {
-            vaiMinterIndex.mantissa = venusInitialIndex;
+            vaiMinterIndex.mantissa = annexInitialIndex;
         }
 
         Double memory deltaIndex = sub_(vaiMintIndex, vaiMinterIndex);
         uint vaiMinterAmount = ComptrollerLensInterface(address(comptroller)).mintedVAIs(vaiMinter);
         uint vaiMinterDelta = mul_(vaiMinterAmount, deltaIndex);
-        uint vaiMinterAccrued = add_(ComptrollerLensInterface(address(comptroller)).venusAccrued(vaiMinter), vaiMinterDelta);
+        uint vaiMinterAccrued = add_(ComptrollerLensInterface(address(comptroller)).annexAccrued(vaiMinter), vaiMinterDelta);
         return (uint(Error.NO_ERROR), vaiMinterAccrued, vaiMinterDelta, vaiMintIndex.mantissa);
     }
 
@@ -209,14 +208,14 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
 
     /**
      * @dev Local vars for avoiding stack-depth limits in calculating account total supply balance.
-     *  Note that `vTokenBalance` is the number of vTokens the account owns in the market,
+     *  Note that `aTokenBalance` is the number of aTokens the account owns in the market,
      *  whereas `borrowBalance` is the amount of underlying that the account has borrowed.
      */
     struct AccountAmountLocalVars {
         uint totalSupplyAmount;
         uint sumSupply;
         uint sumBorrowPlusEffects;
-        uint vTokenBalance;
+        uint aTokenBalance;
         uint borrowBalance;
         uint exchangeRateMantissa;
         uint oraclePriceMantissa;
@@ -228,7 +227,7 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
 
     function getMintableVAI(address minter) public view returns (uint, uint) {
         PriceOracle oracle = ComptrollerLensInterface(address(comptroller)).oracle();
-        VToken[] memory enteredMarkets = ComptrollerLensInterface(address(comptroller)).getAssetsIn(minter);
+        AToken[] memory enteredMarkets = ComptrollerLensInterface(address(comptroller)).getAssetsIn(minter);
 
         AccountAmountLocalVars memory vars; // Holds all our calculation results
 
@@ -243,7 +242,7 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
          * totalSupplyAmount * VAIMintRate - (totalBorrowAmount + mintedVAIOf)
          */
         for (i = 0; i < enteredMarkets.length; i++) {
-            (oErr, vars.vTokenBalance, vars.borrowBalance, vars.exchangeRateMantissa) = enteredMarkets[i].getAccountSnapshot(minter);
+            (oErr, vars.aTokenBalance, vars.borrowBalance, vars.exchangeRateMantissa) = enteredMarkets[i].getAccountSnapshot(minter);
             if (oErr != 0) { // semi-opaque error code, we assume NO_ERROR == 0 is invariant between upgrades
                 return (uint(Error.SNAPSHOT_ERROR), 0);
             }
@@ -261,8 +260,8 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
                 return (uint(Error.MATH_ERROR), 0);
             }
 
-            // sumSupply += tokensToDenom * vTokenBalance
-            (mErr, vars.sumSupply) = mulScalarTruncateAddUInt(vars.tokensToDenom, vars.vTokenBalance, vars.sumSupply);
+            // sumSupply += tokensToDenom * aTokenBalance
+            (mErr, vars.sumSupply) = mulScalarTruncateAddUInt(vars.tokensToDenom, vars.aTokenBalance, vars.sumSupply);
             if (mErr != MathError.NO_ERROR) {
                 return (uint(Error.MATH_ERROR), 0);
             }

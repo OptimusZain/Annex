@@ -126,14 +126,14 @@ contract VAIVault is VAIVaultStorage {
      * @param _amount The amount that XVS to be transfered
      */
     function safeXVSTransfer(address _to, uint256 _amount) internal {
-        uint256 xvsBal = xvs.balanceOf(address(this));
+        uint256 anxBal = anx.balanceOf(address(this));
 
-        if (_amount > xvsBal) {
-            xvs.transfer(_to, xvsBal);
-            xvsBalance = xvs.balanceOf(address(this));
+        if (_amount > anxBal) {
+            anx.transfer(_to, anxBal);
+            anxBalance = anx.balanceOf(address(this));
         } else {
-            xvs.transfer(_to, _amount);
-            xvsBalance = xvs.balanceOf(address(this));
+            anx.transfer(_to, _amount);
+            anxBalance = anx.balanceOf(address(this));
         }
     }
 
@@ -141,10 +141,10 @@ contract VAIVault is VAIVaultStorage {
      * @notice Function that updates pending rewards
      */
     function updatePendingRewards() public {
-        uint256 newRewards = xvs.balanceOf(address(this)).sub(xvsBalance);
+        uint256 newRewards = anx.balanceOf(address(this)).sub(anxBalance);
 
         if(newRewards > 0) {
-            xvsBalance = xvs.balanceOf(address(this)); // If there is no change the balance didn't change
+            anxBalance = anx.balanceOf(address(this)); // If there is no change the balance didn't change
             pendingRewards = pendingRewards.add(newRewards);
         }
     }
@@ -193,8 +193,8 @@ contract VAIVault is VAIVaultStorage {
         require(vaiVaultProxy._acceptImplementation() == 0, "change not authorized");
     }
 
-    function setVenusInfo(address _xvs, address _vai) public onlyAdmin {
-        xvs = IBEP20(_xvs);
+    function setAnnexInfo(address _anx, address _vai) public onlyAdmin {
+        anx = IBEP20(_anx);
         vai = IBEP20(_vai);
 
         _notEntered = true;

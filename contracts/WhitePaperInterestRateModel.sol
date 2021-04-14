@@ -4,9 +4,9 @@ import "./InterestRateModel.sol";
 import "./SafeMath.sol";
 
 /**
-  * @title Venus's WhitePaperInterestRateModel Contract
-  * @author Venus
-  * @notice The parameterized model described in section 2.4 of the original Venus Protocol whitepaper
+  * @title Annex's WhitePaperInterestRateModel Contract
+  * @author Annex
+  * @notice The parameterized model described in section 2.4 of the original Annex Protocol whitepaper
   */
 contract WhitePaperInterestRateModel is InterestRateModel {
     using SafeMath for uint;

@@ -1,21 +1,21 @@
 pragma solidity ^0.5.16;
 
-import "./VBNB.sol";
+import "./ABNB.sol";
 
 /**
- * @title Venus's Maximillion Contract
- * @author Venus
+ * @title Annex's Maximillion Contract
+ * @author Annex
  */
 contract Maximillion {
     /**
      * @notice The default vBnb market to repay in
      */
-    VBNB public vBnb;
+    ABNB public vBnb;
 
     /**
-     * @notice Construct a Maximillion to repay max in a VBNB market
+     * @notice Construct a Maximillion to repay max in a ABNB market
      */
-    constructor(VBNB vBnb_) public {
+    constructor(ABNB vBnb_) public {
         vBnb = vBnb_;
     }
 
@@ -34,7 +34,7 @@ contract Maximillion {
      * @param borrower The address of the borrower account to repay on behalf of
      * @param vBnb_ The address of the vBnb contract to repay in
      */
-    function repayBehalfExplicit(address borrower, VBNB vBnb_) public payable {
+    function repayBehalfExplicit(address borrower, ABNB vBnb_) public payable {
         uint received = msg.value;
         uint borrows = vBnb_.borrowBalanceCurrent(borrower);
         if (received > borrows) {

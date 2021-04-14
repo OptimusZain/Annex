@@ -1,13 +1,13 @@
 pragma solidity ^0.5.16;
 
-import "./VBep20.sol";
+import "./ABep20.sol";
 
 /**
- * @title Venus's VBep20Immutable Contract
- * @notice VTokens which wrap an EIP-20 underlying and are immutable
- * @author Venus
+ * @title Annex's ABep20Immutable Contract
+ * @notice ATokens which wrap an EIP-20 underlying and are immutable
+ * @author Annex
  */
-contract VBep20Immutable is VBep20 {
+contract ABep20Immutable is ABep20 {
     /**
      * @notice Construct a new money market
      * @param underlying_ The address of the underlying asset

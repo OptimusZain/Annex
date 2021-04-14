@@ -1,25 +1,25 @@
 pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
 
-import "../VBep20.sol";
-import "../VToken.sol";
+import "../ABep20.sol";
+import "../AToken.sol";
 import "../PriceOracle.sol";
 import "../EIP20Interface.sol";
 import "../Governance/GovernorAlpha.sol";
-import "../Governance/XVS.sol";
+import "../Governance/ANX.sol";
 
 interface ComptrollerLensInterface {
     function markets(address) external view returns (bool, uint);
     function oracle() external view returns (PriceOracle);
     function getAccountLiquidity(address) external view returns (uint, uint, uint);
-    function getAssetsIn(address) external view returns (VToken[] memory);
-    function claimVenus(address) external;
-    function venusAccrued(address) external view returns (uint);
+    function getAssetsIn(address) external view returns (AToken[] memory);
+    function claimAnnex(address) external;
+    function annexAccrued(address) external view returns (uint);
 }
 
-contract VenusLens {
-    struct VTokenMetadata {
-        address vToken;
+contract AnnexLens {
+    struct ATokenMetadata {
+        address aToken;
         uint exchangeRateCurrent;
         uint supplyRatePerBlock;
         uint borrowRatePerBlock;
@@ -31,55 +31,55 @@ contract VenusLens {
         bool isListed;
         uint collateralFactorMantissa;
         address underlyingAssetAddress;
-        uint vTokenDecimals;
+        uint aTokenDecimals;
         uint underlyingDecimals;
     }
 
-    function vTokenMetadata(VToken vToken) public returns (VTokenMetadata memory) {
-        uint exchangeRateCurrent = vToken.exchangeRateCurrent();
-        ComptrollerLensInterface comptroller = ComptrollerLensInterface(address(vToken.comptroller()));
-        (bool isListed, uint collateralFactorMantissa) = comptroller.markets(address(vToken));
+    function aTokenMetadata(AToken aToken) public returns (ATokenMetadata memory) {
+        uint exchangeRateCurrent = aToken.exchangeRateCurrent();
+        ComptrollerLensInterface comptroller = ComptrollerLensInterface(address(aToken.comptroller()));
+        (bool isListed, uint collateralFactorMantissa) = comptroller.markets(address(aToken));
         address underlyingAssetAddress;
         uint underlyingDecimals;
 
-        if (compareStrings(vToken.symbol(), "vBNB")) {
+        if (compareStrings(aToken.symbol(), "vBNB")) {
             underlyingAssetAddress = address(0);
             underlyingDecimals = 18;
         } else {
-            VBep20 vBep20 = VBep20(address(vToken));
+            ABep20 vBep20 = ABep20(address(aToken));
             underlyingAssetAddress = vBep20.underlying();
             underlyingDecimals = EIP20Interface(vBep20.underlying()).decimals();
         }
 
-        return VTokenMetadata({
-            vToken: address(vToken),
+        return ATokenMetadata({
+            aToken: address(aToken),
             exchangeRateCurrent: exchangeRateCurrent,
-            supplyRatePerBlock: vToken.supplyRatePerBlock(),
-            borrowRatePerBlock: vToken.borrowRatePerBlock(),
-            reserveFactorMantissa: vToken.reserveFactorMantissa(),
-            totalBorrows: vToken.totalBorrows(),
-            totalReserves: vToken.totalReserves(),
-            totalSupply: vToken.totalSupply(),
-            totalCash: vToken.getCash(),
+            supplyRatePerBlock: aToken.supplyRatePerBlock(),
+            borrowRatePerBlock: aToken.borrowRatePerBlock(),
+            reserveFactorMantissa: aToken.reserveFactorMantissa(),
+            totalBorrows: aToken.totalBorrows(),
+            totalReserves: aToken.totalReserves(),
+            totalSupply: aToken.totalSupply(),
+            totalCash: aToken.getCash(),
             isListed: isListed,
             collateralFactorMantissa: collateralFactorMantissa,
             underlyingAssetAddress: underlyingAssetAddress,
-            vTokenDecimals: vToken.decimals(),
+            aTokenDecimals: aToken.decimals(),
             underlyingDecimals: underlyingDecimals
         });
     }
 
-    function vTokenMetadataAll(VToken[] calldata vTokens) external returns (VTokenMetadata[] memory) {
-        uint vTokenCount = vTokens.length;
-        VTokenMetadata[] memory res = new VTokenMetadata[](vTokenCount);
-        for (uint i = 0; i < vTokenCount; i++) {
-            res[i] = vTokenMetadata(vTokens[i]);
+    function aTokenMetadataAll(AToken[] calldata aTokens) external returns (ATokenMetadata[] memory) {
+        uint aTokenCount = aTokens.length;
+        ATokenMetadata[] memory res = new ATokenMetadata[](aTokenCount);
+        for (uint i = 0; i < aTokenCount; i++) {
+            res[i] = aTokenMetadata(aTokens[i]);
         }
         return res;
     }
 
-    struct VTokenBalances {
-        address vToken;
+    struct ATokenBalances {
+        address aToken;
         uint balanceOf;
         uint borrowBalanceCurrent;
         uint balanceOfUnderlying;
@@ -87,25 +87,25 @@ contract VenusLens {
         uint tokenAllowance;
     }
 
-    function vTokenBalances(VToken vToken, address payable account) public returns (VTokenBalances memory) {
-        uint balanceOf = vToken.balanceOf(account);
-        uint borrowBalanceCurrent = vToken.borrowBalanceCurrent(account);
-        uint balanceOfUnderlying = vToken.balanceOfUnderlying(account);
+    function aTokenBalances(AToken aToken, address payable account) public returns (ATokenBalances memory) {
+        uint balanceOf = aToken.balanceOf(account);
+        uint borrowBalanceCurrent = aToken.borrowBalanceCurrent(account);
+        uint balanceOfUnderlying = aToken.balanceOfUnderlying(account);
         uint tokenBalance;
         uint tokenAllowance;
 
-        if (compareStrings(vToken.symbol(), "vBNB")) {
+        if (compareStrings(aToken.symbol(), "vBNB")) {
             tokenBalance = account.balance;
             tokenAllowance = account.balance;
         } else {
-            VBep20 vBep20 = VBep20(address(vToken));
+            ABep20 vBep20 = ABep20(address(aToken));
             EIP20Interface underlying = EIP20Interface(vBep20.underlying());
             tokenBalance = underlying.balanceOf(account);
-            tokenAllowance = underlying.allowance(account, address(vToken));
+            tokenAllowance = underlying.allowance(account, address(aToken));
         }
 
-        return VTokenBalances({
-            vToken: address(vToken),
+        return ATokenBalances({
+            aToken: address(aToken),
             balanceOf: balanceOf,
             borrowBalanceCurrent: borrowBalanceCurrent,
             balanceOfUnderlying: balanceOfUnderlying,
@@ -114,41 +114,41 @@ contract VenusLens {
         });
     }
 
-    function vTokenBalancesAll(VToken[] calldata vTokens, address payable account) external returns (VTokenBalances[] memory) {
-        uint vTokenCount = vTokens.length;
-        VTokenBalances[] memory res = new VTokenBalances[](vTokenCount);
-        for (uint i = 0; i < vTokenCount; i++) {
-            res[i] = vTokenBalances(vTokens[i], account);
+    function aTokenBalancesAll(AToken[] calldata aTokens, address payable account) external returns (ATokenBalances[] memory) {
+        uint aTokenCount = aTokens.length;
+        ATokenBalances[] memory res = new ATokenBalances[](aTokenCount);
+        for (uint i = 0; i < aTokenCount; i++) {
+            res[i] = aTokenBalances(aTokens[i], account);
         }
         return res;
     }
 
-    struct VTokenUnderlyingPrice {
-        address vToken;
+    struct ATokenUnderlyingPrice {
+        address aToken;
         uint underlyingPrice;
     }
 
-    function vTokenUnderlyingPrice(VToken vToken) public view returns (VTokenUnderlyingPrice memory) {
-        ComptrollerLensInterface comptroller = ComptrollerLensInterface(address(vToken.comptroller()));
+    function aTokenUnderlyingPrice(AToken aToken) public view returns (ATokenUnderlyingPrice memory) {
+        ComptrollerLensInterface comptroller = ComptrollerLensInterface(address(aToken.comptroller()));
         PriceOracle priceOracle = comptroller.oracle();
 
-        return VTokenUnderlyingPrice({
-            vToken: address(vToken),
-            underlyingPrice: priceOracle.getUnderlyingPrice(vToken)
+        return ATokenUnderlyingPrice({
+            aToken: address(aToken),
+            underlyingPrice: priceOracle.getUnderlyingPrice(aToken)
         });
     }
 
-    function vTokenUnderlyingPriceAll(VToken[] calldata vTokens) external view returns (VTokenUnderlyingPrice[] memory) {
-        uint vTokenCount = vTokens.length;
-        VTokenUnderlyingPrice[] memory res = new VTokenUnderlyingPrice[](vTokenCount);
-        for (uint i = 0; i < vTokenCount; i++) {
-            res[i] = vTokenUnderlyingPrice(vTokens[i]);
+    function aTokenUnderlyingPriceAll(AToken[] calldata aTokens) external view returns (ATokenUnderlyingPrice[] memory) {
+        uint aTokenCount = aTokens.length;
+        ATokenUnderlyingPrice[] memory res = new ATokenUnderlyingPrice[](aTokenCount);
+        for (uint i = 0; i < aTokenCount; i++) {
+            res[i] = aTokenUnderlyingPrice(aTokens[i]);
         }
         return res;
     }
 
     struct AccountLimits {
-        VToken[] markets;
+        AToken[] markets;
         uint liquidity;
         uint shortfall;
     }
@@ -254,54 +254,54 @@ contract VenusLens {
         return res;
     }
 
-    struct XVSBalanceMetadata {
+    struct ANXBalanceMetadata {
         uint balance;
         uint votes;
         address delegate;
     }
 
-    function getXVSBalanceMetadata(XVS xvs, address account) external view returns (XVSBalanceMetadata memory) {
-        return XVSBalanceMetadata({
-            balance: xvs.balanceOf(account),
-            votes: uint256(xvs.getCurrentVotes(account)),
-            delegate: xvs.delegates(account)
+    function getANXBalanceMetadata(ANX anx, address account) external view returns (ANXBalanceMetadata memory) {
+        return ANXBalanceMetadata({
+            balance: anx.balanceOf(account),
+            votes: uint256(anx.getCurrentVotes(account)),
+            delegate: anx.delegates(account)
         });
     }
 
-    struct XVSBalanceMetadataExt {
+    struct ANXBalanceMetadataExt {
         uint balance;
         uint votes;
         address delegate;
         uint allocated;
     }
 
-    function getXVSBalanceMetadataExt(XVS xvs, ComptrollerLensInterface comptroller, address account) external returns (XVSBalanceMetadataExt memory) {
-        uint balance = xvs.balanceOf(account);
-        comptroller.claimVenus(account);
-        uint newBalance = xvs.balanceOf(account);
-        uint accrued = comptroller.venusAccrued(account);
-        uint total = add(accrued, newBalance, "sum xvs total");
+    function getANXBalanceMetadataExt(ANX anx, ComptrollerLensInterface comptroller, address account) external returns (ANXBalanceMetadataExt memory) {
+        uint balance = anx.balanceOf(account);
+        comptroller.claimAnnex(account);
+        uint newBalance = anx.balanceOf(account);
+        uint accrued = comptroller.annexAccrued(account);
+        uint total = add(accrued, newBalance, "sum anx total");
         uint allocated = sub(total, balance, "sub allocated");
 
-        return XVSBalanceMetadataExt({
+        return ANXBalanceMetadataExt({
             balance: balance,
-            votes: uint256(xvs.getCurrentVotes(account)),
-            delegate: xvs.delegates(account),
+            votes: uint256(anx.getCurrentVotes(account)),
+            delegate: anx.delegates(account),
             allocated: allocated
         });
     }
 
-    struct VenusVotes {
+    struct AnnexVotes {
         uint blockNumber;
         uint votes;
     }
 
-    function getVenusVotes(XVS xvs, address account, uint32[] calldata blockNumbers) external view returns (VenusVotes[] memory) {
-        VenusVotes[] memory res = new VenusVotes[](blockNumbers.length);
+    function getAnnexVotes(ANX anx, address account, uint32[] calldata blockNumbers) external view returns (AnnexVotes[] memory) {
+        AnnexVotes[] memory res = new AnnexVotes[](blockNumbers.length);
         for (uint i = 0; i < blockNumbers.length; i++) {
-            res[i] = VenusVotes({
+            res[i] = AnnexVotes({
                 blockNumber: uint256(blockNumbers[i]),
-                votes: uint256(xvs.getPriorVotes(account, blockNumbers[i]))
+                votes: uint256(anx.getPriorVotes(account, blockNumbers[i]))
             });
         }
         return res;

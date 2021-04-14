@@ -4,9 +4,9 @@ import "./JumpRateModel.sol";
 import "./SafeMath.sol";
 
 /**
-  * @title Venus's DAIInterestRateModel Contract (version 2)
-  * @author Venus (modified by Dharma Labs)
-  * @notice The parameterized model described in section 2.4 of the original Venus Protocol whitepaper.
+  * @title Annex's DAIInterestRateModel Contract (version 2)
+  * @author Annex (modified by Dharma Labs)
+  * @notice The parameterized model described in section 2.4 of the original Annex Protocol whitepaper.
   * Version 2 modifies the original interest rate model by increasing the "gap" or slope of the model prior
   * to the "kink" from 0.05% to 2% with the goal of "smoothing out" interest rate changes as the utilization
   * rate increases.

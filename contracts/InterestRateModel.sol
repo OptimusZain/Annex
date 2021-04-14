@@ -1,8 +1,8 @@
 pragma solidity ^0.5.16;
 
 /**
-  * @title Venus's InterestRateModel Interface
-  * @author Venus
+  * @title Annex's InterestRateModel Interface
+  * @author Annex
   */
 contract InterestRateModel {
     /// @notice Indicator that this is an InterestRateModel contract (for inspection)

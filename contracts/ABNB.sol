@@ -1,15 +1,15 @@
 pragma solidity ^0.5.16;
 
-import "./VToken.sol";
+import "./AToken.sol";
 
 /**
- * @title Venus's VBNB Contract
- * @notice VToken which wraps BNB
- * @author Venus
+ * @title Annex's ABNB Contract
+ * @notice AToken which wraps BNB
+ * @author Annex
  */
-contract VBNB is VToken {
+contract ABNB is AToken {
     /**
-     * @notice Construct a new VBNB money market
+     * @notice Construct a new ABNB money market
      * @param comptroller_ The address of the Comptroller
      * @param interestRateModel_ The address of the interest rate model
      * @param initialExchangeRateMantissa_ The initial exchange rate, scaled by 1e18
@@ -38,7 +38,7 @@ contract VBNB is VToken {
     /*** User Interface ***/
 
     /**
-     * @notice Sender supplies assets into the market and receives vTokens in exchange
+     * @notice Sender supplies assets into the market and receives aTokens in exchange
      * @dev Reverts upon any failure
      */
     function mint() external payable {
@@ -47,9 +47,9 @@ contract VBNB is VToken {
     }
 
     /**
-     * @notice Sender redeems vTokens in exchange for the underlying asset
+     * @notice Sender redeems aTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemTokens The number of vTokens to redeem into underlying
+     * @param redeemTokens The number of aTokens to redeem into underlying
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function redeem(uint redeemTokens) external returns (uint) {
@@ -57,7 +57,7 @@ contract VBNB is VToken {
     }
 
     /**
-     * @notice Sender redeems vTokens in exchange for a specified amount of underlying asset
+     * @notice Sender redeems aTokens in exchange for a specified amount of underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param redeemAmount The amount of underlying to redeem
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -98,16 +98,16 @@ contract VBNB is VToken {
      * @notice The sender liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
      * @dev Reverts upon any failure
-     * @param borrower The borrower of this vToken to be liquidated
-     * @param vTokenCollateral The market in which to seize collateral from the borrower
+     * @param borrower The borrower of this aToken to be liquidated
+     * @param aTokenCollateral The market in which to seize collateral from the borrower
      */
-    function liquidateBorrow(address borrower, VToken vTokenCollateral) external payable {
-        (uint err,) = liquidateBorrowInternal(borrower, msg.value, vTokenCollateral);
+    function liquidateBorrow(address borrower, AToken aTokenCollateral) external payable {
+        (uint err,) = liquidateBorrowInternal(borrower, msg.value, aTokenCollateral);
         requireNoError(err, "liquidateBorrow failed");
     }
 
     /**
-     * @notice Send BNB to VBNB to mint
+     * @notice Send BNB to ABNB to mint
      */
     function () external payable {
         (uint err,) = mintInternal(msg.value);

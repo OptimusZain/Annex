@@ -25,8 +25,8 @@ contract VAIVaultAdminStorage {
 }
 
 contract VAIVaultStorage is VAIVaultAdminStorage {
-    /// @notice The XVS TOKEN!
-    IBEP20 public xvs;
+    /// @notice The ANX TOKEN!
+    IBEP20 public anx;
 
     /// @notice The VAI TOKEN!
     IBEP20 public vai;
@@ -34,11 +34,11 @@ contract VAIVaultStorage is VAIVaultAdminStorage {
     /// @notice Guard variable for re-entrancy checks
     bool internal _notEntered;
 
-    /// @notice XVS balance of vault
-    uint256 public xvsBalance;
+    /// @notice ANX balance of vault
+    uint256 public anxBalance;
 
-    /// @notice Accumulated XVS per share
-    uint256 public accXVSPerShare;
+    /// @notice Accumulated ANX per share
+    uint256 public accANXPerShare;
 
     //// pending rewards awaiting anyone to update
     uint256 public pendingRewards;

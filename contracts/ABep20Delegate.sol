@@ -1,13 +1,13 @@
 pragma solidity ^0.5.16;
 
-import "./VBep20.sol";
+import "./ABep20.sol";
 
 /**
- * @title Venus's VBep20Delegate Contract
- * @notice VTokens which wrap an EIP-20 underlying and are delegated to
- * @author Venus
+ * @title Annex's ABep20Delegate Contract
+ * @notice ATokens which wrap an EIP-20 underlying and are delegated to
+ * @author Annex
  */
-contract VBep20Delegate is VBep20, VDelegateInterface {
+contract ABep20Delegate is ABep20, ADelegateInterface {
     /**
      * @notice Construct an empty delegate
      */

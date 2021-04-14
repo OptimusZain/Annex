@@ -7,16 +7,16 @@ contract SimplePriceOracle is PriceOracle {
     mapping(address => uint) prices;
     event PricePosted(address asset, uint previousPriceMantissa, uint requestedPriceMantissa, uint newPriceMantissa);
 
-    function getUnderlyingPrice(VToken vToken) public view returns (uint) {
-        if (compareStrings(vToken.symbol(), "vBNB")) {
+    function getUnderlyingPrice(AToken aTokenh) public view returns (uint) {
+        if (compareStrings(aToken.symbol(), "vBNB")) {
             return 1e18;
         } else {
-            return prices[address(VBep20(address(vToken)).underlying())];
+            return prices[address(VBep20(address(aToken)).underlying())];
         }
     }
 
-    function setUnderlyingPrice(VToken vToken, uint underlyingPriceMantissa) public {
-        address asset = address(VBep20(address(vToken)).underlying());
+    function setUnderlyingPrice(AToken aToken, uint underlyingPriceMantissa) public {
+        address asset = address(VBep20(address(aToken)).underlying());
         emit PricePosted(asset, prices[asset], underlyingPriceMantissa, underlyingPriceMantissa);
         prices[asset] = underlyingPriceMantissa;
     }

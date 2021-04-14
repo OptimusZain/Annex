@@ -1,6 +1,6 @@
 pragma solidity ^0.5.16;
 
-import "./VToken.sol";
+import "./AToken.sol";
 import "./PriceOracle.sol";
 import "./VAIControllerInterface.sol";
 
@@ -51,7 +51,7 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
     /**
      * @notice Per-account mapping of "assets you are in", capped by maxAssets
      */
-    mapping(address => VToken[]) public accountAssets;
+    mapping(address => AToken[]) public accountAssets;
 
     struct Market {
         /// @notice Whether or not this market is listed
@@ -67,12 +67,12 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
         /// @notice Per-market mapping of "accounts in this asset"
         mapping(address => bool) accountMembership;
 
-        /// @notice Whether or not this market receives XVS
-        bool isVenus;
+        /// @notice Whether or not this market receives ANX
+        bool isAnnex;
     }
 
     /**
-     * @notice Official mapping of vTokens -> Market metadata
+     * @notice Official mapping of aTokens -> Market metadata
      * @dev Used e.g. to determine if a market is supported
      */
     mapping(address => Market) public markets;
@@ -90,8 +90,8 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
     mapping(address => bool) public mintGuardianPaused;
     mapping(address => bool) public borrowGuardianPaused;
 
-    struct VenusMarketState {
-        /// @notice The market's last updated venusBorrowIndex or venusSupplyIndex
+    struct AnnexMarketState {
+        /// @notice The market's last updated annexBorrowIndex or annexSupplyIndex
         uint224 index;
 
         /// @notice The block number the index was last updated at
@@ -99,28 +99,28 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
     }
 
     /// @notice A list of all markets
-    VToken[] public allMarkets;
+    AToken[] public allMarkets;
 
-    /// @notice The rate at which the flywheel distributes XVS, per block
-    uint public venusRate;
+    /// @notice The rate at which the flywheel distributes ANX, per block
+    uint public annexRate;
 
-    /// @notice The portion of venusRate that each market currently receives
-    mapping(address => uint) public venusSpeeds;
+    /// @notice The portion of annexRate that each market currently receives
+    mapping(address => uint) public annexSpeeds;
 
-    /// @notice The Venus market supply state for each market
-    mapping(address => VenusMarketState) public venusSupplyState;
+    /// @notice The Annex market supply state for each market
+    mapping(address => AnnexMarketState) public annexSupplyState;
 
-    /// @notice The Venus market borrow state for each market
-    mapping(address => VenusMarketState) public venusBorrowState;
+    /// @notice The Annex market borrow state for each market
+    mapping(address => AnnexMarketState) public annexBorrowState;
 
-    /// @notice The Venus supply index for each market for each supplier as of the last time they accrued XVS
-    mapping(address => mapping(address => uint)) public venusSupplierIndex;
+    /// @notice The Annex supply index for each market for each supplier as of the last time they accrued ANX
+    mapping(address => mapping(address => uint)) public annexSupplierIndex;
 
-    /// @notice The Venus borrow index for each market for each borrower as of the last time they accrued XVS
-    mapping(address => mapping(address => uint)) public venusBorrowerIndex;
+    /// @notice The Annex borrow index for each market for each borrower as of the last time they accrued ANX
+    mapping(address => mapping(address => uint)) public annexBorrowerIndex;
 
-    /// @notice The XVS accrued but not yet transferred to each user
-    mapping(address => uint) public venusAccrued;
+    /// @notice The ANX accrued but not yet transferred to each user
+    mapping(address => uint) public annexAccrued;
 
     /// @notice The Address of VAIController
     VAIControllerInterface public vaiController;
@@ -142,13 +142,13 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
      */
     bool public protocolPaused;
 
-    /// @notice The rate at which the flywheel distributes XVS to VAI Minters, per block
-    uint public venusVAIRate;
+    /// @notice The rate at which the flywheel distributes ANX to VAI Minters, per block
+    uint public annexVAIRate;
 }
 
 contract ComptrollerV2Storage is ComptrollerV1Storage {
-    /// @notice The rate at which the flywheel distributes XVS to VAI Vault, per block
-    uint public venusVAIVaultRate;
+    /// @notice The rate at which the flywheel distributes ANX to VAI Vault, per block
+    uint public annexVAIVaultRate;
 
     // address of VAI Vault
     address public vaiVaultAddress;
@@ -164,6 +164,6 @@ contract ComptrollerV3Storage is ComptrollerV2Storage {
     /// @notice The borrowCapGuardian can set borrowCaps to any number for any market. Lowering the borrow cap could disable borrowing on the given market.
     address public borrowCapGuardian;
 
-    /// @notice Borrow caps enforced by borrowAllowed for each vToken address. Defaults to zero which corresponds to unlimited borrowing.
+    /// @notice Borrow caps enforced by borrowAllowed for each aToken address. Defaults to zero which corresponds to unlimited borrowing.
     mapping(address => uint) public borrowCaps;
 }

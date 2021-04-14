@@ -1,13 +1,13 @@
 pragma solidity ^0.5.16;
 
-import "./VToken.sol";
+import "./AToken.sol";
 
 /**
- * @title Venus's VBep20 Contract
- * @notice VTokens which wrap an EIP-20 underlying
- * @author Venus
+ * @title Annex's ABep20 Contract
+ * @notice ATokens which wrap an EIP-20 underlying
+ * @author Annex
  */
-contract VBep20 is VToken, VBep20Interface {
+contract ABep20 is AToken, ABep20Interface {
     /**
      * @notice Initialize the new money market
      * @param underlying_ The address of the underlying asset
@@ -25,7 +25,7 @@ contract VBep20 is VToken, VBep20Interface {
                         string memory name_,
                         string memory symbol_,
                         uint8 decimals_) public {
-        // VToken initialize does the bulk of the work
+        // AToken initialize does the bulk of the work
         super.initialize(comptroller_, interestRateModel_, initialExchangeRateMantissa_, name_, symbol_, decimals_);
 
         // Set underlying and sanity check it
@@ -36,7 +36,7 @@ contract VBep20 is VToken, VBep20Interface {
     /*** User Interface ***/
 
     /**
-     * @notice Sender supplies assets into the market and receives vTokens in exchange
+     * @notice Sender supplies assets into the market and receives aTokens in exchange
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param mintAmount The amount of the underlying asset to supply
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -47,9 +47,9 @@ contract VBep20 is VToken, VBep20Interface {
     }
 
     /**
-     * @notice Sender redeems vTokens in exchange for the underlying asset
+     * @notice Sender redeems aTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemTokens The number of vTokens to redeem into underlying
+     * @param redeemTokens The number of aTokens to redeem into underlying
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function redeem(uint redeemTokens) external returns (uint) {
@@ -57,7 +57,7 @@ contract VBep20 is VToken, VBep20Interface {
     }
 
     /**
-     * @notice Sender redeems vTokens in exchange for a specified amount of underlying asset
+     * @notice Sender redeems aTokens in exchange for a specified amount of underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param redeemAmount The amount of underlying to redeem
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -99,13 +99,13 @@ contract VBep20 is VToken, VBep20Interface {
     /**
      * @notice The sender liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
-     * @param borrower The borrower of this vToken to be liquidated
+     * @param borrower The borrower of this aToken to be liquidated
      * @param repayAmount The amount of the underlying borrowed asset to repay
-     * @param vTokenCollateral The market in which to seize collateral from the borrower
+     * @param aTokenCollateral The market in which to seize collateral from the borrower
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function liquidateBorrow(address borrower, uint repayAmount, VTokenInterface vTokenCollateral) external returns (uint) {
-        (uint err,) = liquidateBorrowInternal(borrower, repayAmount, vTokenCollateral);
+    function liquidateBorrow(address borrower, uint repayAmount, ATokenInterface aTokenCollateral) external returns (uint) {
+        (uint err,) = liquidateBorrowInternal(borrower, repayAmount, aTokenCollateral);
         return err;
     }
 

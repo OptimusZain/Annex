@@ -3,7 +3,7 @@ pragma solidity ^0.5.16;
 import "./ComptrollerInterface.sol";
 import "./InterestRateModel.sol";
 
-contract VTokenStorage {
+contract ATokenStorage {
     /**
      * @dev Guard variable for re-entrancy checks
      */
@@ -46,7 +46,7 @@ contract VTokenStorage {
     address payable public pendingAdmin;
 
     /**
-     * @notice Contract which oversees inter-vToken operations
+     * @notice Contract which oversees inter-aToken operations
      */
     ComptrollerInterface public comptroller;
 
@@ -56,7 +56,7 @@ contract VTokenStorage {
     InterestRateModel public interestRateModel;
 
     /**
-     * @notice Initial exchange rate used when minting the first VTokens (used when totalSupply = 0)
+     * @notice Initial exchange rate used when minting the first ATokens (used when totalSupply = 0)
      */
     uint internal initialExchangeRateMantissa;
 
@@ -116,11 +116,11 @@ contract VTokenStorage {
     mapping(address => BorrowSnapshot) internal accountBorrows;
 }
 
-contract VTokenInterface is VTokenStorage {
+contract ATokenInterface is ATokenStorage {
     /**
-     * @notice Indicator that this is a VToken contract (for inspection)
+     * @notice Indicator that this is a AToken contract (for inspection)
      */
-    bool public constant isVToken = true;
+    bool public constant isAToken = true;
 
 
     /*** Market Events ***/
@@ -153,7 +153,7 @@ contract VTokenInterface is VTokenStorage {
     /**
      * @notice Event emitted when a borrow is liquidated
      */
-    event LiquidateBorrow(address liquidator, address borrower, uint repayAmount, address vTokenCollateral, uint seizeTokens);
+    event LiquidateBorrow(address liquidator, address borrower, uint repayAmount, address aTokenCollateral, uint seizeTokens);
 
 
     /*** Admin Events ***/
@@ -242,7 +242,7 @@ contract VTokenInterface is VTokenStorage {
 
 contract VBep20Storage {
     /**
-     * @notice Underlying asset for this VToken
+     * @notice Underlying asset for this AToken
      */
     address public underlying;
 }
@@ -257,7 +257,7 @@ contract VBep20Interface is VBep20Storage {
     function borrow(uint borrowAmount) external returns (uint);
     function repayBorrow(uint repayAmount) external returns (uint);
     function repayBorrowBehalf(address borrower, uint repayAmount) external returns (uint);
-    function liquidateBorrow(address borrower, uint repayAmount, VTokenInterface vTokenCollateral) external returns (uint);
+    function liquidateBorrow(address borrower, uint repayAmount, ATokenInterface aTokenCollateral) external returns (uint);
 
 
     /*** Admin Functions ***/

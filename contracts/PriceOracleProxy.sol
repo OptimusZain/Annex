@@ -1,7 +1,7 @@
 pragma solidity ^0.5.16;
 
 import "./VBep20.sol";
-import "./VToken.sol";
+import "./AToken.sol";
 import "./PriceOracle.sol";
 
 interface V1PriceOracleInterface {
@@ -69,33 +69,33 @@ contract PriceOracleProxy is PriceOracle {
     }
 
     /**
-     * @notice Get the underlying price of a listed vToken asset
-     * @param vToken The vToken to get the underlying price of
+     * @notice Get the underlying price of a listed aToken asset
+     * @param aToken The aToken to get the underlying price of
      * @return The underlying asset price mantissa (scaled by 1e18)
      */
-    function getUnderlyingPrice(VToken vToken) public view returns (uint) {
-        address vTokenAddress = address(vToken);
+    function getUnderlyingPrice(AToken aToken) public view returns (uint) {
+        address aTokenAddress = address(aToken);
 
-        if (vTokenAddress == vBnbAddress) {
+        if (aTokenAddress == vBnbAddress) {
             // bnb always worth 1
             return 1e18;
         }
 
-        if (vTokenAddress == vUsdcAddress || vTokenAddress == vUsdtAddress) {
+        if (aTokenAddress == vUsdcAddress || aTokenAddress == vUsdtAddress) {
             return v1PriceOracle.assetPrices(usdcOracleKey);
         }
 
-        if (vTokenAddress == vDaiAddress) {
+        if (aTokenAddress == vDaiAddress) {
             return v1PriceOracle.assetPrices(daiOracleKey);
         }
 
-        if (vTokenAddress == vSaiAddress) {
+        if (aTokenAddress == vSaiAddress) {
             // use the frozen SAI price if set, otherwise use the DAI price
             return saiPrice > 0 ? saiPrice : v1PriceOracle.assetPrices(daiOracleKey);
         }
 
         // otherwise just read from v1 oracle
-        address underlying = VBep20(vTokenAddress).underlying();
+        address underlying = VBep20(aTokenAddress).underlying();
         return v1PriceOracle.assetPrices(underlying);
     }
 
