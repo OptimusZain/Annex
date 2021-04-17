@@ -1,10 +1,10 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
 import "../../contracts/EIP20NonStandardInterface.sol";
 
 /**
   * @title Fauceteer
-  * @author Venus
+  * @author Annex
   * @notice First computer program to be part of The Giving Pledge
   */
 contract Fauceteer {

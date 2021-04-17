@@ -41,6 +41,6 @@ contract VAIControllerStorage is VAIUnitrollerAdminStorage {
     /// @notice The Annex VAI state initialized
     bool public isAnnexVAIInitialized;
 
-    /// @notice The Annex VAI minter index as of the last time they accrued ANX
+    /// @notice The Annex VAI minter index as of the last time they accrued ANN
     mapping(address => uint) public annexVAIMinterIndex;
 }

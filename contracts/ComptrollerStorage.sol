@@ -67,7 +67,7 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
         /// @notice Per-market mapping of "accounts in this asset"
         mapping(address => bool) accountMembership;
 
-        /// @notice Whether or not this market receives ANX
+        /// @notice Whether or not this market receives ANN
         bool isAnnex;
     }
 
@@ -101,7 +101,7 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
     /// @notice A list of all markets
     AToken[] public allMarkets;
 
-    /// @notice The rate at which the flywheel distributes ANX, per block
+    /// @notice The rate at which the flywheel distributes ANN, per block
     uint public annexRate;
 
     /// @notice The portion of annexRate that each market currently receives
@@ -113,13 +113,13 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
     /// @notice The Annex market borrow state for each market
     mapping(address => AnnexMarketState) public annexBorrowState;
 
-    /// @notice The Annex supply index for each market for each supplier as of the last time they accrued ANX
+    /// @notice The Annex supply index for each market for each supplier as of the last time they accrued ANN
     mapping(address => mapping(address => uint)) public annexSupplierIndex;
 
-    /// @notice The Annex borrow index for each market for each borrower as of the last time they accrued ANX
+    /// @notice The Annex borrow index for each market for each borrower as of the last time they accrued ANN
     mapping(address => mapping(address => uint)) public annexBorrowerIndex;
 
-    /// @notice The ANX accrued but not yet transferred to each user
+    /// @notice The ANN accrued but not yet transferred to each user
     mapping(address => uint) public annexAccrued;
 
     /// @notice The Address of VAIController
@@ -142,12 +142,12 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
      */
     bool public protocolPaused;
 
-    /// @notice The rate at which the flywheel distributes ANX to VAI Minters, per block
+    /// @notice The rate at which the flywheel distributes ANN to VAI Minters, per block
     uint public annexVAIRate;
 }
 
 contract ComptrollerV2Storage is ComptrollerV1Storage {
-    /// @notice The rate at which the flywheel distributes ANX to VAI Vault, per block
+    /// @notice The rate at which the flywheel distributes ANN to VAI Vault, per block
     uint public annexVAIVaultRate;
 
     // address of VAI Vault

@@ -1,137 +1,137 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
 import "../../contracts/Comptroller.sol";
 import "../../contracts/PriceOracle.sol";
 
 contract ComptrollerKovan is Comptroller {
-  function getXVSAddress() public view returns (address) {
+  function getANNAddress() public view returns (address) {
     return 0x61460874a7196d6a22D1eE4922473664b3E95270;
   }
 }
 
 contract ComptrollerRopsten is Comptroller {
-  function getXVSAddress() public view returns (address) {
+  function getANNAddress() public view returns (address) {
     return 0x1Fe16De955718CFAb7A44605458AB023838C2793;
   }
 }
 
 contract ComptrollerHarness is Comptroller {
-    address xvsAddress;
+    address annAddress;
     uint public blockNumber;
 
     constructor() Comptroller() public {}
 
-    function setVenusSupplyState(address vToken, uint224 index, uint32 blockNumber_) public {
-        venusSupplyState[vToken].index = index;
-        venusSupplyState[vToken].block = blockNumber_;
+    function setAnnexSupplyState(address aToken, uint224 index, uint32 blockNumber_) public {
+        annexSupplyState[aToken].index = index;
+        annexSupplyState[aToken].block = blockNumber_;
     }
 
-    function setVenusBorrowState(address vToken, uint224 index, uint32 blockNumber_) public {
-        venusBorrowState[vToken].index = index;
-        venusBorrowState[vToken].block = blockNumber_;
+    function setAnnexBorrowState(address aToken, uint224 index, uint32 blockNumber_) public {
+        annexBorrowState[aToken].index = index;
+        annexBorrowState[aToken].block = blockNumber_;
     }
 
-    function setVenusAccrued(address user, uint userAccrued) public {
-        venusAccrued[user] = userAccrued;
+    function setAnnexAccrued(address user, uint userAccrued) public {
+        annexAccrued[user] = userAccrued;
     }
 
-    function setXVSAddress(address xvsAddress_) public {
-        xvsAddress = xvsAddress_;
+    function setANNAddress(address annAddress_) public {
+        annAddress = annAddress_;
     }
 
-    function getXVSAddress() public view returns (address) {
-        return xvsAddress;
-    }
-
-    /**
-     * @notice Set the amount of XVS distributed per block
-     * @param venusRate_ The amount of XVS wei per block to distribute
-     */
-    function harnessSetVenusRate(uint venusRate_) public {
-        venusRate = venusRate_;
+    function getANNAddress() public view returns (address) {
+        return annAddress;
     }
 
     /**
-     * @notice Recalculate and update XVS speeds for all XVS markets
+     * @notice Set the amount of ANN distributed per block
+     * @param annexRate_ The amount of ANN wei per block to distribute
      */
-    function harnessRefreshVenusSpeeds() public {
-        VToken[] memory allMarkets_ = allMarkets;
+    function harnessSetAnnexRate(uint annexRate_) public {
+        annexRate = annexRate_;
+    }
+
+    /**
+     * @notice Recalculate and update ANN speeds for all ANN markets
+     */
+    function harnessRefreshAnnexSpeeds() public {
+        AToken[] memory allMarkets_ = allMarkets;
 
         for (uint i = 0; i < allMarkets_.length; i++) {
-            VToken vToken = allMarkets_[i];
-            Exp memory borrowIndex = Exp({mantissa: vToken.borrowIndex()});
-            updateVenusSupplyIndex(address(vToken));
-            updateVenusBorrowIndex(address(vToken), borrowIndex);
+            AToken aToken = allMarkets_[i];
+            Exp memory borrowIndex = Exp({mantissa: aToken.borrowIndex()});
+            updateAnnexSupplyIndex(address(aToken));
+            updateAnnexBorrowIndex(address(aToken), borrowIndex);
         }
 
         Exp memory totalUtility = Exp({mantissa: 0});
         Exp[] memory utilities = new Exp[](allMarkets_.length);
         for (uint i = 0; i < allMarkets_.length; i++) {
-            VToken vToken = allMarkets_[i];
-            if (venusSpeeds[address(vToken)] > 0) {
-                Exp memory assetPrice = Exp({mantissa: oracle.getUnderlyingPrice(vToken)});
-                Exp memory utility = mul_(assetPrice, vToken.totalBorrows());
+            AToken aToken = allMarkets_[i];
+            if (annexSpeeds[address(aToken)] > 0) {
+                Exp memory assetPrice = Exp({mantissa: oracle.getUnderlyingPrice(aToken)});
+                Exp memory utility = mul_(assetPrice, aToken.totalBorrows());
                 utilities[i] = utility;
                 totalUtility = add_(totalUtility, utility);
             }
         }
 
         for (uint i = 0; i < allMarkets_.length; i++) {
-            VToken vToken = allMarkets[i];
-            uint newSpeed = totalUtility.mantissa > 0 ? mul_(venusRate, div_(utilities[i], totalUtility)) : 0;
-            setVenusSpeedInternal(vToken, newSpeed);
+            AToken aToken = allMarkets[i];
+            uint newSpeed = totalUtility.mantissa > 0 ? mul_(annexRate, div_(utilities[i], totalUtility)) : 0;
+            setAnnexSpeedInternal(aToken, newSpeed);
         }
     }
 
-    function setVenusBorrowerIndex(address vToken, address borrower, uint index) public {
-        venusBorrowerIndex[vToken][borrower] = index;
+    function setAnnexBorrowerIndex(address aToken, address borrower, uint index) public {
+        annexBorrowerIndex[aToken][borrower] = index;
     }
 
-    function setVenusSupplierIndex(address vToken, address supplier, uint index) public {
-        venusSupplierIndex[vToken][supplier] = index;
+    function setAnnexSupplierIndex(address aToken, address supplier, uint index) public {
+        annexSupplierIndex[aToken][supplier] = index;
     }
 
-    function harnessDistributeAllBorrowerVenus(address vToken, address borrower, uint marketBorrowIndexMantissa) public {
-        distributeBorrowerVenus(vToken, borrower, Exp({mantissa: marketBorrowIndexMantissa}));
-        venusAccrued[borrower] = grantXVSInternal(borrower, venusAccrued[borrower]);
+    function harnessDistributeAllBorrowerAnnex(address aToken, address borrower, uint marketBorrowIndexMantissa) public {
+        distributeBorrowerAnnex(aToken, borrower, Exp({mantissa: marketBorrowIndexMantissa}));
+        annexAccrued[borrower] = grantANNInternal(borrower, annexAccrued[borrower]);
     }
 
-    function harnessDistributeAllSupplierVenus(address vToken, address supplier) public {
-        distributeSupplierVenus(vToken, supplier);
-        venusAccrued[supplier] = grantXVSInternal(supplier, venusAccrued[supplier]);
+    function harnessDistributeAllSupplierAnnex(address aToken, address supplier) public {
+        distributeSupplierAnnex(aToken, supplier);
+        annexAccrued[supplier] = grantANNInternal(supplier, annexAccrued[supplier]);
     }
 
-    function harnessUpdateVenusBorrowIndex(address vToken, uint marketBorrowIndexMantissa) public {
-        updateVenusBorrowIndex(vToken, Exp({mantissa: marketBorrowIndexMantissa}));
+    function harnessUpdateAnnexBorrowIndex(address aToken, uint marketBorrowIndexMantissa) public {
+        updateAnnexBorrowIndex(aToken, Exp({mantissa: marketBorrowIndexMantissa}));
     }
 
-    function harnessUpdateVenusSupplyIndex(address vToken) public {
-        updateVenusSupplyIndex(vToken);
+    function harnessUpdateAnnexSupplyIndex(address aToken) public {
+        updateAnnexSupplyIndex(aToken);
     }
 
-    function harnessDistributeBorrowerVenus(address vToken, address borrower, uint marketBorrowIndexMantissa) public {
-        distributeBorrowerVenus(vToken, borrower, Exp({mantissa: marketBorrowIndexMantissa}));
+    function harnessDistributeBorrowerAnnex(address aToken, address borrower, uint marketBorrowIndexMantissa) public {
+        distributeBorrowerAnnex(aToken, borrower, Exp({mantissa: marketBorrowIndexMantissa}));
     }
 
-    function harnessDistributeSupplierVenus(address vToken, address supplier) public {
-        distributeSupplierVenus(vToken, supplier);
+    function harnessDistributeSupplierAnnex(address aToken, address supplier) public {
+        distributeSupplierAnnex(aToken, supplier);
     }
 
-    function harnessDistributeVAIMinterVenus(address vaiMinter) public {
-        distributeVAIMinterVenus(vaiMinter, false);
+    function harnessDistributeVAIMinterAnnex(address vaiMinter) public {
+        distributeVAIMinterAnnex(vaiMinter, false);
     }
 
-    function harnessTransferVenus(address user, uint userAccrued, uint threshold) public returns (uint) {
+    function harnessTransferAnnex(address user, uint userAccrued, uint threshold) public returns (uint) {
         if (userAccrued > 0 && userAccrued >= threshold) {
-            return grantXVSInternal(user, userAccrued);
+            return grantANNInternal(user, userAccrued);
         }
         return userAccrued;
     }
 
-    function harnessAddVenusMarkets(address[] memory vTokens) public {
-        for (uint i = 0; i < vTokens.length; i++) {
-            // temporarily set venusSpeed to 1 (will be fixed by `harnessRefreshVenusSpeeds`)
-            setVenusSpeedInternal(VToken(vTokens[i]), 1);
+    function harnessAddAnnexMarkets(address[] memory aTokens) public {
+        for (uint i = 0; i < aTokens.length; i++) {
+            // temporarily set annexSpeed to 1 (will be fixed by `harnessRefreshAnnexSpeeds`)
+            setAnnexSpeedInternal(AToken(aTokens[i]), 1);
         }
     }
 
@@ -152,23 +152,23 @@ contract ComptrollerHarness is Comptroller {
         return blockNumber;
     }
 
-    function getVenusMarkets() public view returns (address[] memory) {
+    function getAnnexMarkets() public view returns (address[] memory) {
         uint m = allMarkets.length;
         uint n = 0;
         for (uint i = 0; i < m; i++) {
-            if (venusSpeeds[address(allMarkets[i])] > 0) {
+            if (annexSpeeds[address(allMarkets[i])] > 0) {
                 n++;
             }
         }
 
-        address[] memory venusMarkets = new address[](n);
+        address[] memory annexMarkets = new address[](n);
         uint k = 0;
         for (uint i = 0; i < m; i++) {
-            if (venusSpeeds[address(allMarkets[i])] > 0) {
-                venusMarkets[k++] = address(allMarkets[i]);
+            if (annexSpeeds[address(allMarkets[i])] > 0) {
+                annexMarkets[k++] = address(allMarkets[i]);
             }
         }
-        return venusMarkets;
+        return annexMarkets;
     }
 }
 
@@ -204,69 +204,69 @@ contract BoolComptroller is ComptrollerInterface {
 
     /*** Assets You Are In ***/
 
-    function enterMarkets(address[] calldata _vTokens) external returns (uint[] memory) {
-        _vTokens;
+    function enterMarkets(address[] calldata _aTokens) external returns (uint[] memory) {
+        _aTokens;
         uint[] memory ret;
         return ret;
     }
 
-    function exitMarket(address _vToken) external returns (uint) {
-        _vToken;
+    function exitMarket(address _aToken) external returns (uint) {
+        _aToken;
         return noError;
     }
 
     /*** Policy Hooks ***/
 
-    function mintAllowed(address _vToken, address _minter, uint _mintAmount) external returns (uint) {
-        _vToken;
+    function mintAllowed(address _aToken, address _minter, uint _mintAmount) external returns (uint) {
+        _aToken;
         _minter;
         _mintAmount;
         return allowMint ? noError : opaqueError;
     }
 
-    function mintVerify(address _vToken, address _minter, uint _mintAmount, uint _mintTokens) external {
-        _vToken;
+    function mintVerify(address _aToken, address _minter, uint _mintAmount, uint _mintTokens) external {
+        _aToken;
         _minter;
         _mintAmount;
         _mintTokens;
         require(verifyMint, "mintVerify rejected mint");
     }
 
-    function redeemAllowed(address _vToken, address _redeemer, uint _redeemTokens) external returns (uint) {
-        _vToken;
+    function redeemAllowed(address _aToken, address _redeemer, uint _redeemTokens) external returns (uint) {
+        _aToken;
         _redeemer;
         _redeemTokens;
         return allowRedeem ? noError : opaqueError;
     }
 
-    function redeemVerify(address _vToken, address _redeemer, uint _redeemAmount, uint _redeemTokens) external {
-        _vToken;
+    function redeemVerify(address _aToken, address _redeemer, uint _redeemAmount, uint _redeemTokens) external {
+        _aToken;
         _redeemer;
         _redeemAmount;
         _redeemTokens;
         require(verifyRedeem, "redeemVerify rejected redeem");
     }
 
-    function borrowAllowed(address _vToken, address _borrower, uint _borrowAmount) external returns (uint) {
-        _vToken;
+    function borrowAllowed(address _aToken, address _borrower, uint _borrowAmount) external returns (uint) {
+        _aToken;
         _borrower;
         _borrowAmount;
         return allowBorrow ? noError : opaqueError;
     }
 
-    function borrowVerify(address _vToken, address _borrower, uint _borrowAmount) external {
-        _vToken;
+    function borrowVerify(address _aToken, address _borrower, uint _borrowAmount) external {
+        _aToken;
         _borrower;
         _borrowAmount;
         require(verifyBorrow, "borrowVerify rejected borrow");
     }
 
     function repayBorrowAllowed(
-        address _vToken,
+        address _aToken,
         address _payer,
         address _borrower,
         uint _repayAmount) external returns (uint) {
-        _vToken;
+        _aToken;
         _payer;
         _borrower;
         _repayAmount;
@@ -274,12 +274,12 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function repayBorrowVerify(
-        address _vToken,
+        address _aToken,
         address _payer,
         address _borrower,
         uint _repayAmount,
         uint _borrowerIndex) external {
-        _vToken;
+        _aToken;
         _payer;
         _borrower;
         _repayAmount;
@@ -288,13 +288,13 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function liquidateBorrowAllowed(
-        address _vTokenBorrowed,
-        address _vTokenCollateral,
+        address _aTokenBorrowed,
+        address _aTokenCollateral,
         address _liquidator,
         address _borrower,
         uint _repayAmount) external returns (uint) {
-        _vTokenBorrowed;
-        _vTokenCollateral;
+        _aTokenBorrowed;
+        _aTokenCollateral;
         _liquidator;
         _borrower;
         _repayAmount;
@@ -302,14 +302,14 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function liquidateBorrowVerify(
-        address _vTokenBorrowed,
-        address _vTokenCollateral,
+        address _aTokenBorrowed,
+        address _aTokenCollateral,
         address _liquidator,
         address _borrower,
         uint _repayAmount,
         uint _seizeTokens) external {
-        _vTokenBorrowed;
-        _vTokenCollateral;
+        _aTokenBorrowed;
+        _aTokenCollateral;
         _liquidator;
         _borrower;
         _repayAmount;
@@ -318,13 +318,13 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function seizeAllowed(
-        address _vTokenCollateral,
-        address _vTokenBorrowed,
+        address _aTokenCollateral,
+        address _aTokenBorrowed,
         address _borrower,
         address _liquidator,
         uint _seizeTokens) external returns (uint) {
-        _vTokenCollateral;
-        _vTokenBorrowed;
+        _aTokenCollateral;
+        _aTokenBorrowed;
         _liquidator;
         _borrower;
         _seizeTokens;
@@ -332,13 +332,13 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function seizeVerify(
-        address _vTokenCollateral,
-        address _vTokenBorrowed,
+        address _aTokenCollateral,
+        address _aTokenBorrowed,
         address _liquidator,
         address _borrower,
         uint _seizeTokens) external {
-        _vTokenCollateral;
-        _vTokenBorrowed;
+        _aTokenCollateral;
+        _aTokenBorrowed;
         _liquidator;
         _borrower;
         _seizeTokens;
@@ -346,11 +346,11 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function transferAllowed(
-        address _vToken,
+        address _aToken,
         address _src,
         address _dst,
         uint _transferTokens) external returns (uint) {
-        _vToken;
+        _aToken;
         _src;
         _dst;
         _transferTokens;
@@ -358,11 +358,11 @@ contract BoolComptroller is ComptrollerInterface {
     }
 
     function transferVerify(
-        address _vToken,
+        address _aToken,
         address _src,
         address _dst,
         uint _transferTokens) external {
-        _vToken;
+        _aToken;
         _src;
         _dst;
         _transferTokens;
@@ -372,11 +372,11 @@ contract BoolComptroller is ComptrollerInterface {
     /*** Special Liquidation Calculation ***/
 
     function liquidateCalculateSeizeTokens(
-        address _vTokenBorrowed,
-        address _vTokenCollateral,
+        address _aTokenBorrowed,
+        address _aTokenCollateral,
         uint _repayAmount) external view returns (uint, uint) {
-        _vTokenBorrowed;
-        _vTokenCollateral;
+        _aTokenBorrowed;
+        _aTokenCollateral;
         _repayAmount;
         return failCalculateSeizeTokens ? (opaqueError, 0) : (noError, calculatedSeizeTokens);
     }

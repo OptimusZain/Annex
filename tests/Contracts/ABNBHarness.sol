@@ -1,9 +1,9 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
 import "../../contracts/VBNB.sol";
 import "./ComptrollerScenario.sol";
 
-contract VBNBHarness is VBNB {
+contract ABNBHarness is VBNB {
     uint harnessExchangeRate;
     uint public blockNumber = 100000;
 
@@ -88,8 +88,8 @@ contract VBNBHarness is VBNB {
         return err;
     }
 
-    function harnessRedeemFresh(address payable account, uint vTokenAmount, uint underlyingAmount) public returns (uint) {
-        return super.redeemFresh(account, vTokenAmount, underlyingAmount);
+    function harnessRedeemFresh(address payable account, uint aTokenAmount, uint underlyingAmount) public returns (uint) {
+        return super.redeemFresh(account, aTokenAmount, underlyingAmount);
     }
 
     function harnessAccountBorrows(address account) public view returns (uint principal, uint interestIndex) {
@@ -114,8 +114,8 @@ contract VBNBHarness is VBNB {
         return err;
     }
 
-    function harnessLiquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, VToken vTokenCollateral) public returns (uint) {
-        (uint err,) = liquidateBorrowFresh(liquidator, borrower, repayAmount, vTokenCollateral);
+    function harnessLiquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, AToken aTokenCollateral) public returns (uint) {
+        (uint err,) = liquidateBorrowFresh(liquidator, borrower, repayAmount, aTokenCollateral);
         return err;
     }
 

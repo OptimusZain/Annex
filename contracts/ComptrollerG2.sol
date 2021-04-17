@@ -7,7 +7,7 @@ import "./PriceOracle.sol";
 import "./ComptrollerInterface.sol";
 import "./ComptrollerStorage.sol";
 import "./Unitroller.sol";
-import "./Governance/ANX.sol";
+import "./Governance/ANN.sol";
 import "./VAI/VAI.sol";
 
 /**
@@ -60,13 +60,13 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     /// @notice Emitted when a new Annex speed is calculated for a market
     event AnnexSpeedUpdated(AToken indexed aToken, uint newSpeed);
 
-    /// @notice Emitted when ANX is distributed to a supplier
+    /// @notice Emitted when ANN is distributed to a supplier
     event DistributedSupplierAnnex(AToken indexed aToken, address indexed supplier, uint annexDelta, uint annexSupplyIndex);
 
-    /// @notice Emitted when ANX is distributed to a borrower
+    /// @notice Emitted when ANN is distributed to a borrower
     event DistributedBorrowerAnnex(AToken indexed aToken, address indexed borrower, uint annexDelta, uint annexBorrowIndex);
 
-    /// @notice Emitted when ANX is distributed to a VAI minter
+    /// @notice Emitted when ANN is distributed to a VAI minter
     event DistributedVAIMinterAnnex(address indexed vaiMinter, uint annexDelta, uint annexVAIMintIndex);
 
     /// @notice Emitted when VAIController is changed
@@ -78,7 +78,7 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     /// @notice Emitted when protocol state is changed by admin
     event ActionProtocolPaused(bool state);
 
-    /// @notice The threshold above which the flywheel transfers ANX, in wei
+    /// @notice The threshold above which the flywheel transfers ANN, in wei
     uint public constant annexClaimThreshold = 0.001e18;
 
     /// @notice The initial Annex index for a market
@@ -1178,7 +1178,7 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Accrue ANX to the market by updating the supply index
+     * @notice Accrue ANN to the market by updating the supply index
      * @param aToken The market whose supply index to update
      */
     function updateAnnexSupplyIndex(address aToken) internal {
@@ -1201,7 +1201,7 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Accrue ANX to the market by updating the borrow index
+     * @notice Accrue ANN to the market by updating the borrow index
      * @param aToken The market whose borrow index to update
      */
     function updateAnnexBorrowIndex(address aToken, Exp memory marketBorrowIndex) internal {
@@ -1224,7 +1224,7 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Accrue ANX to by updating the VAI minter index
+     * @notice Accrue ANN to by updating the VAI minter index
      */
     function updateAnnexVAIMintIndex() internal {
         if (address(vaiController) != address(0)) {
@@ -1233,9 +1233,9 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Calculate ANX accrued by a supplier and possibly transfer it to them
+     * @notice Calculate ANN accrued by a supplier and possibly transfer it to them
      * @param aToken The market in which the supplier is interacting
-     * @param supplier The address of the supplier to distribute ANX to
+     * @param supplier The address of the supplier to distribute ANN to
      */
     function distributeSupplierAnnex(address aToken, address supplier, bool distributeAll) internal {
         AnnexMarketState storage supplyState = annexSupplyState[aToken];
@@ -1251,15 +1251,15 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
         uint supplierTokens = AToken(aToken).balanceOf(supplier);
         uint supplierDelta = mul_(supplierTokens, deltaIndex);
         uint supplierAccrued = add_(annexAccrued[supplier], supplierDelta);
-        annexAccrued[supplier] = transferANX(supplier, supplierAccrued, distributeAll ? 0 : annexClaimThreshold);
+        annexAccrued[supplier] = transferANN(supplier, supplierAccrued, distributeAll ? 0 : annexClaimThreshold);
         emit DistributedSupplierAnnex(AToken(aToken), supplier, supplierDelta, supplyIndex.mantissa);
     }
 
     /**
-     * @notice Calculate ANX accrued by a borrower and possibly transfer it to them
+     * @notice Calculate ANN accrued by a borrower and possibly transfer it to them
      * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
      * @param aToken The market in which the borrower is interacting
-     * @param borrower The address of the borrower to distribute ANX to
+     * @param borrower The address of the borrower to distribute ANN to
      */
     function distributeBorrowerAnnex(address aToken, address borrower, Exp memory marketBorrowIndex, bool distributeAll) internal {
         AnnexMarketState storage borrowState = annexBorrowState[aToken];
@@ -1272,15 +1272,15 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
             uint borrowerAmount = div_(AToken(aToken).borrowBalanceStored(borrower), marketBorrowIndex);
             uint borrowerDelta = mul_(borrowerAmount, deltaIndex);
             uint borrowerAccrued = add_(annexAccrued[borrower], borrowerDelta);
-            annexAccrued[borrower] = transferANX(borrower, borrowerAccrued, distributeAll ? 0 : annexClaimThreshold);
+            annexAccrued[borrower] = transferANN(borrower, borrowerAccrued, distributeAll ? 0 : annexClaimThreshold);
             emit DistributedBorrowerAnnex(AToken(aToken), borrower, borrowerDelta, borrowIndex.mantissa);
         }
     }
 
     /**
-     * @notice Calculate ANX accrued by a VAI minter and possibly transfer it to them
+     * @notice Calculate ANN accrued by a VAI minter and possibly transfer it to them
      * @dev VAI minters will not begin to accrue until after the first interaction with the protocol.
-     * @param vaiMinter The address of the VAI minter to distribute ANX to
+     * @param vaiMinter The address of the VAI minter to distribute ANN to
      */
     function distributeVAIMinterAnnex(address vaiMinter, bool distributeAll) internal {
         if (address(vaiController) != address(0)) {
@@ -1290,25 +1290,25 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
             uint err;
             (err, vaiMinterAccrued, vaiMinterDelta, vaiMintIndexMantissa) = vaiController.calcDistributeVAIMinterAnnex(vaiMinter);
             if (err == uint(Error.NO_ERROR)) {
-                annexAccrued[vaiMinter] = transferANX(vaiMinter, vaiMinterAccrued, distributeAll ? 0 : annexClaimThreshold);
+                annexAccrued[vaiMinter] = transferANN(vaiMinter, vaiMinterAccrued, distributeAll ? 0 : annexClaimThreshold);
                 emit DistributedVAIMinterAnnex(vaiMinter, vaiMinterDelta, vaiMintIndexMantissa);
             }
         }
     }
 
     /**
-     * @notice Transfer ANX to the user, if they are above the threshold
-     * @dev Note: If there is not enough ANX, we do not perform the transfer all.
-     * @param user The address of the user to transfer ANX to
-     * @param userAccrued The amount of ANX to (possibly) transfer
-     * @return The amount of ANX which was NOT transferred to the user
+     * @notice Transfer ANN to the user, if they are above the threshold
+     * @dev Note: If there is not enough ANN, we do not perform the transfer all.
+     * @param user The address of the user to transfer ANN to
+     * @param userAccrued The amount of ANN to (possibly) transfer
+     * @return The amount of ANN which was NOT transferred to the user
      */
-    function transferANX(address user, uint userAccrued, uint threshold) internal returns (uint) {
+    function transferANN(address user, uint userAccrued, uint threshold) internal returns (uint) {
         if (userAccrued >= threshold && userAccrued > 0) {
-            ANX anx = ANX(getANXAddress());
-            uint anxRemaining = anx.balanceOf(address(this));
-            if (userAccrued <= anxRemaining) {
-                anx.transfer(user, userAccrued);
+            ANN ann = ANN(getANNAddress());
+            uint annRemaining = ann.balanceOf(address(this));
+            if (userAccrued <= annRemaining) {
+                ann.transfer(user, userAccrued);
                 return 0;
             }
         }
@@ -1316,17 +1316,17 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Claim all the anx accrued by holder in all markets and VAI
-     * @param holder The address to claim ANX for
+     * @notice Claim all the ann accrued by holder in all markets and VAI
+     * @param holder The address to claim ANN for
      */
     function claimAnnex(address holder) public {
         return claimAnnex(holder, allMarkets);
     }
 
     /**
-     * @notice Claim all the anx accrued by holder in the specified markets
-     * @param holder The address to claim ANX for
-     * @param aTokens The list of markets to claim ANX in
+     * @notice Claim all the ann accrued by holder in the specified markets
+     * @param holder The address to claim ANN for
+     * @param aTokens The list of markets to claim ANN in
      */
     function claimAnnex(address holder, AToken[] memory aTokens) public {
         address[] memory holders = new address[](1);
@@ -1335,11 +1335,11 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Claim all anx accrued by the holders
-     * @param holders The addresses to claim ANX for
-     * @param aTokens The list of markets to claim ANX in
-     * @param borrowers Whether or not to claim ANX earned by borrowing
-     * @param suppliers Whether or not to claim ANX earned by supplying
+     * @notice Claim all ann accrued by the holders
+     * @param holders The addresses to claim ANN for
+     * @param aTokens The list of markets to claim ANN in
+     * @param borrowers Whether or not to claim ANN earned by borrowing
+     * @param suppliers Whether or not to claim ANN earned by supplying
      */
     function claimAnnex(address[] memory holders, AToken[] memory aTokens, bool borrowers, bool suppliers) public {
         uint j;
@@ -1369,8 +1369,8 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     /*** Annex Distribution Admin ***/
 
     /**
-     * @notice Set the amount of ANX distributed per block
-     * @param annexRate_ The amount of ANX wei per block to distribute
+     * @notice Set the amount of ANN distributed per block
+     * @param annexRate_ The amount of ANN wei per block to distribute
      */
     function _setAnnexRate(uint annexRate_) public onlyAdmin {
         uint oldRate = annexRate;
@@ -1381,8 +1381,8 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Set the amount of ANX distributed per block to VAI Mint
-     * @param annexVAIRate_ The amount of ANX wei per block to distribute to VAI Mint
+     * @notice Set the amount of ANN distributed per block to VAI Mint
+     * @param annexVAIRate_ The amount of ANN wei per block to distribute to VAI Mint
      */
     function _setAnnexVAIRate(uint annexVAIRate_) public {
         require(msg.sender == admin, "only admin can");
@@ -1393,7 +1393,7 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Add markets to annexMarkets, allowing them to earn ANX in the flywheel
+     * @notice Add markets to annexMarkets, allowing them to earn ANN in the flywheel
      * @param aTokens The addresses of the markets to add
      */
     function _addAnnexMarkets(address[] calldata aTokens) external onlyAdmin {
@@ -1435,7 +1435,7 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Remove a market from annexMarkets, preventing it from earning ANX in the flywheel
+     * @notice Remove a market from annexMarkets, preventing it from earning ANN in the flywheel
      * @param aToken The address of the market to drop
      */
     function _dropAnnexMarket(address aToken) public onlyAdmin {
@@ -1462,10 +1462,10 @@ contract ComptrollerG2 is ComptrollerV1Storage, ComptrollerInterface, Comptrolle
     }
 
     /**
-     * @notice Return the address of the ANX token
-     * @return The address of ANX
+     * @notice Return the address of the ANN token
+     * @return The address of ANN
      */
-    function getANXAddress() public view returns (address) {
+    function getANNAddress() public view returns (address) {
         return 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     }
 

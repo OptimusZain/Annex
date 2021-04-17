@@ -2,18 +2,19 @@ pragma solidity ^0.5.16;
 
 import "./AToken.sol";
 import "./ErrorReporter.sol";
+import "./Exponential.sol";
 import "./PriceOracle.sol";
 import "./ComptrollerInterface.sol";
 import "./ComptrollerStorage.sol";
 import "./Unitroller.sol";
-import "./Governance/ANX.sol";
+import "./Governance/ANN.sol";
 import "./VAI/VAI.sol";
 
 /**
  * @title Annex's Comptroller Contract
  * @author Annex
  */
-contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, ComptrollerErrorReporter, ExponentialNoError {
+contract Comptroller is ComptrollerV3Storage, ComptrollerInterface, ComptrollerErrorReporter, Exponential {
     /// @notice Emitted when an admin supports a market
     event MarketListed(AToken aToken);
 
@@ -31,6 +32,9 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
 
     /// @notice Emitted when liquidation incentive is changed by admin
     event NewLiquidationIncentive(uint oldLiquidationIncentiveMantissa, uint newLiquidationIncentiveMantissa);
+
+    /// @notice Emitted when maxAssets is changed by admin
+    event NewMaxAssets(uint oldMaxAssets, uint newMaxAssets);
 
     /// @notice Emitted when price oracle is changed
     event NewPriceOracle(PriceOracle oldPriceOracle, PriceOracle newPriceOracle);
@@ -56,16 +60,16 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     /// @notice Emitted when a new Annex speed is calculated for a market
     event AnnexSpeedUpdated(AToken indexed aToken, uint newSpeed);
 
-    /// @notice Emitted when ANX is distributed to a supplier
+    /// @notice Emitted when ANN is distributed to a supplier
     event DistributedSupplierAnnex(AToken indexed aToken, address indexed supplier, uint annexDelta, uint annexSupplyIndex);
 
-    /// @notice Emitted when ANX is distributed to a borrower
+    /// @notice Emitted when ANN is distributed to a borrower
     event DistributedBorrowerAnnex(AToken indexed aToken, address indexed borrower, uint annexDelta, uint annexBorrowIndex);
 
-    /// @notice Emitted when ANX is distributed to a VAI minter
+    /// @notice Emitted when ANN is distributed to a VAI minter
     event DistributedVAIMinterAnnex(address indexed vaiMinter, uint annexDelta, uint annexVAIMintIndex);
 
-    /// @notice Emitted when ANX is distributed to VAI Vault
+    /// @notice Emitted when ANN is distributed to VAI Vault
     event DistributedVAIVaultAnnex(uint amount);
 
     /// @notice Emitted when VAIController is changed
@@ -83,15 +87,6 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     /// @notice Emitted when borrow cap guardian is changed
     event NewBorrowCapGuardian(address oldBorrowCapGuardian, address newBorrowCapGuardian);
 
-    /// @notice Emitted when treasury guardian is changed
-    event NewTreasuryGuardian(address oldTreasuryGuardian, address newTreasuryGuardian);
-
-    /// @notice Emitted when treasury address is changed
-    event NewTreasuryAddress(address oldTreasuryAddress, address newTreasuryAddress);
-
-    /// @notice Emitted when treasury percent is changed
-    event NewTreasuryPercent(uint oldTreasuryPercent, uint newTreasuryPercent);
-
     /// @notice The initial Annex index for a market
     uint224 public constant annexInitialIndex = 1e36;
 
@@ -103,6 +98,12 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
 
     // No collateralFactorMantissa may exceed this value
     uint internal constant collateralFactorMaxMantissa = 0.9e18; // 0.9
+
+    // liquidationIncentiveMantissa must be no less than this value
+    uint internal constant liquidationIncentiveMinMantissa = 1.0e18; // 1.0
+
+    // liquidationIncentiveMantissa must be no greater than this value
+    uint internal constant liquidationIncentiveMaxMantissa = 1.5e18; // 1.5
 
     constructor() public {
         admin = msg.sender;
@@ -183,6 +184,11 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         if (marketToJoin.accountMembership[borrower]) {
             // already joined
             return Error.NO_ERROR;
+        }
+
+        if (accountAssets[borrower].length >= maxAssets)  {
+            // no space, cannot join
+            return Error.TOO_MANY_ASSETS;
         }
 
         // survived the gauntlet, add to list
@@ -387,7 +393,8 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         // Borrow cap of 0 corresponds to unlimited borrowing
         if (borrowCap != 0) {
             uint totalBorrows = AToken(aToken).totalBorrows();
-            uint nextTotalBorrows = add_(totalBorrows, borrowAmount);
+            (MathError mathErr, uint nextTotalBorrows) = addUInt(totalBorrows, borrowAmount);
+            require(mathErr == MathError.NO_ERROR, "total borrows overflow");
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
@@ -498,7 +505,7 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         // Shh - currently unused
         liquidator;
 
-        if (!(markets[aTokenBorrowed].isListed || address(aTokenBorrowed) == address(vaiController)) || !markets[aTokenCollateral].isListed) {
+        if (!markets[aTokenBorrowed].isListed || !markets[aTokenCollateral].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
@@ -512,14 +519,11 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         }
 
         /* The liquidator may not repay more than what is allowed by the closeFactor */
-        uint borrowBalance;
-        if (address(aTokenBorrowed) != address(vaiController)) {
-            borrowBalance = AToken(aTokenBorrowed).borrowBalanceStored(borrower);
-        } else {
-            borrowBalance = mintedVAIs[borrower];
+        uint borrowBalance = AToken(aTokenBorrowed).borrowBalanceStored(borrower);
+        (MathError mathErr, uint maxClose) = mulScalarTruncate(Exp({mantissa: closeFactorMantissa}), borrowBalance);
+        if (mathErr != MathError.NO_ERROR) {
+            return uint(Error.MATH_ERROR);
         }
-
-        uint maxClose = mul_ScalarTruncate(Exp({mantissa: closeFactorMantissa}), borrowBalance);
         if (repayAmount > maxClose) {
             return uint(Error.TOO_MUCH_REPAY);
         }
@@ -576,8 +580,7 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         // Shh - currently unused
         seizeTokens;
 
-        // We've added VAIController as a borrowed token list check for seize
-        if (!markets[aTokenCollateral].isListed || !(markets[aTokenBorrowed].isListed || address(aTokenBorrowed) == address(vaiController))) {
+        if (!markets[aTokenCollateral].isListed || !markets[aTokenBorrowed].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
         }
 
@@ -738,6 +741,7 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
 
         AccountLiquidityLocalVars memory vars; // Holds all our calculation results
         uint oErr;
+        MathError mErr;
 
         // For each asset the account is in
         AToken[] memory assets = accountAssets[account];
@@ -760,27 +764,47 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
             vars.oraclePrice = Exp({mantissa: vars.oraclePriceMantissa});
 
             // Pre-compute a conversion factor from tokens -> bnb (normalized price value)
-            vars.tokensToDenom = mul_(mul_(vars.collateralFactor, vars.exchangeRate), vars.oraclePrice);
+            (mErr, vars.tokensToDenom) = mulExp3(vars.collateralFactor, vars.exchangeRate, vars.oraclePrice);
+            if (mErr != MathError.NO_ERROR) {
+                return (Error.MATH_ERROR, 0, 0);
+            }
 
             // sumCollateral += tokensToDenom * aTokenBalance
-            vars.sumCollateral = mul_ScalarTruncateAddUInt(vars.tokensToDenom, vars.aTokenBalance, vars.sumCollateral);
+            (mErr, vars.sumCollateral) = mulScalarTruncateAddUInt(vars.tokensToDenom, vars.aTokenBalance, vars.sumCollateral);
+            if (mErr != MathError.NO_ERROR) {
+                return (Error.MATH_ERROR, 0, 0);
+            }
 
             // sumBorrowPlusEffects += oraclePrice * borrowBalance
-            vars.sumBorrowPlusEffects = mul_ScalarTruncateAddUInt(vars.oraclePrice, vars.borrowBalance, vars.sumBorrowPlusEffects);
+            (mErr, vars.sumBorrowPlusEffects) = mulScalarTruncateAddUInt(vars.oraclePrice, vars.borrowBalance, vars.sumBorrowPlusEffects);
+            if (mErr != MathError.NO_ERROR) {
+                return (Error.MATH_ERROR, 0, 0);
+            }
 
             // Calculate effects of interacting with aTokenModify
             if (asset == aTokenModify) {
                 // redeem effect
                 // sumBorrowPlusEffects += tokensToDenom * redeemTokens
-                vars.sumBorrowPlusEffects = mul_ScalarTruncateAddUInt(vars.tokensToDenom, redeemTokens, vars.sumBorrowPlusEffects);
+                (mErr, vars.sumBorrowPlusEffects) = mulScalarTruncateAddUInt(vars.tokensToDenom, redeemTokens, vars.sumBorrowPlusEffects);
+                if (mErr != MathError.NO_ERROR) {
+                    return (Error.MATH_ERROR, 0, 0);
+                }
 
                 // borrow effect
                 // sumBorrowPlusEffects += oraclePrice * borrowAmount
-                vars.sumBorrowPlusEffects = mul_ScalarTruncateAddUInt(vars.oraclePrice, borrowAmount, vars.sumBorrowPlusEffects);
+                (mErr, vars.sumBorrowPlusEffects) = mulScalarTruncateAddUInt(vars.oraclePrice, borrowAmount, vars.sumBorrowPlusEffects);
+                if (mErr != MathError.NO_ERROR) {
+                    return (Error.MATH_ERROR, 0, 0);
+                }
             }
         }
 
-        vars.sumBorrowPlusEffects = add_(vars.sumBorrowPlusEffects, mintedVAIs[account]);
+        /// @dev VAI Integration^
+        (mErr, vars.sumBorrowPlusEffects) = addUInt(vars.sumBorrowPlusEffects, mintedVAIs[account]);
+        if (mErr != MathError.NO_ERROR) {
+            return (Error.MATH_ERROR, 0, 0);
+        }
+        /// @dev VAI Integration$
 
         // These are safe, as the underflow condition is checked first
         if (vars.sumCollateral > vars.sumBorrowPlusEffects) {
@@ -817,48 +841,27 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         Exp memory numerator;
         Exp memory denominator;
         Exp memory ratio;
+        MathError mathErr;
 
-        numerator = mul_(Exp({mantissa: liquidationIncentiveMantissa}), Exp({mantissa: priceBorrowedMantissa}));
-        denominator = mul_(Exp({mantissa: priceCollateralMantissa}), Exp({mantissa: exchangeRateMantissa}));
-        ratio = div_(numerator, denominator);
-
-        seizeTokens = mul_ScalarTruncate(ratio, actualRepayAmount);
-
-        return (uint(Error.NO_ERROR), seizeTokens);
-    }
-
-    /**
-     * @notice Calculate number of tokens of collateral asset to seize given an underlying amount
-     * @dev Used in liquidation (called in aToken.liquidateBorrowFresh)
-     * @param aTokenCollateral The address of the collateral aToken
-     * @param actualRepayAmount The amount of aTokenBorrowed underlying to convert into aTokenCollateral tokens
-     * @return (errorCode, number of aTokenCollateral tokens to be seized in a liquidation)
-     */
-    function liquidateVAICalculateSeizeTokens(address aTokenCollateral, uint actualRepayAmount) external view returns (uint, uint) {
-        /* Read oracle prices for borrowed and collateral markets */
-        uint priceBorrowedMantissa = 1e18;  // Note: this is VAI
-        uint priceCollateralMantissa = oracle.getUnderlyingPrice(AToken(aTokenCollateral));
-        if (priceCollateralMantissa == 0) {
-            return (uint(Error.PRICE_ERROR), 0);
+        (mathErr, numerator) = mulExp(liquidationIncentiveMantissa, priceBorrowedMantissa);
+        if (mathErr != MathError.NO_ERROR) {
+            return (uint(Error.MATH_ERROR), 0);
         }
 
-        /*
-         * Get the exchange rate and calculate the number of collateral tokens to seize:
-         *  seizeAmount = actualRepayAmount * liquidationIncentive * priceBorrowed / priceCollateral
-         *  seizeTokens = seizeAmount / exchangeRate
-         *   = actualRepayAmount * (liquidationIncentive * priceBorrowed) / (priceCollateral * exchangeRate)
-         */
-        uint exchangeRateMantissa = AToken(aTokenCollateral).exchangeRateStored(); // Note: reverts on error
-        uint seizeTokens;
-        Exp memory numerator;
-        Exp memory denominator;
-        Exp memory ratio;
+        (mathErr, denominator) = mulExp(priceCollateralMantissa, exchangeRateMantissa);
+        if (mathErr != MathError.NO_ERROR) {
+            return (uint(Error.MATH_ERROR), 0);
+        }
 
-        numerator = mul_(Exp({mantissa: liquidationIncentiveMantissa}), Exp({mantissa: priceBorrowedMantissa}));
-        denominator = mul_(Exp({mantissa: priceCollateralMantissa}), Exp({mantissa: exchangeRateMantissa}));
-        ratio = div_(numerator, denominator);
+        (mathErr, ratio) = divExp(numerator, denominator);
+        if (mathErr != MathError.NO_ERROR) {
+            return (uint(Error.MATH_ERROR), 0);
+        }
 
-        seizeTokens = mul_ScalarTruncate(ratio, actualRepayAmount);
+        (mathErr, seizeTokens) = mulScalarTruncate(ratio, actualRepayAmount);
+        if (mathErr != MathError.NO_ERROR) {
+            return (uint(Error.MATH_ERROR), 0);
+        }
 
         return (uint(Error.NO_ERROR), seizeTokens);
     }
@@ -892,11 +895,24 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
       * @notice Sets the closeFactor used when liquidating borrows
       * @dev Admin function to set closeFactor
       * @param newCloseFactorMantissa New close factor, scaled by 1e18
-      * @return uint 0=success, otherwise a failure
+      * @return uint 0=success, otherwise a failure. (See ErrorReporter for details)
       */
     function _setCloseFactor(uint newCloseFactorMantissa) external returns (uint) {
         // Check caller is admin
-    	require(msg.sender == admin, "only admin can set close factor");
+        if (msg.sender != admin) {
+            return fail(Error.UNAUTHORIZED, FailureInfo.SET_CLOSE_FACTOR_OWNER_CHECK);
+        }
+
+        Exp memory newCloseFactorExp = Exp({mantissa: newCloseFactorMantissa});
+        Exp memory lowLimit = Exp({mantissa: closeFactorMinMantissa});
+        if (lessThanOrEqualExp(newCloseFactorExp, lowLimit)) {
+            return fail(Error.INVALID_CLOSE_FACTOR, FailureInfo.SET_CLOSE_FACTOR_VALIDATION);
+        }
+
+        Exp memory highLimit = Exp({mantissa: closeFactorMaxMantissa});
+        if (lessThanExp(highLimit, newCloseFactorExp)) {
+            return fail(Error.INVALID_CLOSE_FACTOR, FailureInfo.SET_CLOSE_FACTOR_VALIDATION);
+        }
 
         uint oldCloseFactorMantissa = closeFactorMantissa;
         closeFactorMantissa = newCloseFactorMantissa;
@@ -948,6 +964,25 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
+      * @notice Sets maxAssets which controls how many markets can be entered
+      * @dev Admin function to set maxAssets
+      * @param newMaxAssets New max assets
+      * @return uint 0=success, otherwise a failure. (See ErrorReporter for details)
+      */
+    function _setMaxAssets(uint newMaxAssets) external returns (uint) {
+        // Check caller is admin
+        if (msg.sender != admin) {
+            return fail(Error.UNAUTHORIZED, FailureInfo.SET_MAX_ASSETS_OWNER_CHECK);
+        }
+
+        uint oldMaxAssets = maxAssets;
+        maxAssets = newMaxAssets;
+        emit NewMaxAssets(oldMaxAssets, newMaxAssets);
+
+        return uint(Error.NO_ERROR);
+    }
+
+    /**
       * @notice Sets liquidationIncentive
       * @dev Admin function to set liquidationIncentive
       * @param newLiquidationIncentiveMantissa New liquidationIncentive scaled by 1e18
@@ -957,6 +992,18 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         // Check caller is admin
         if (msg.sender != admin) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_LIQUIDATION_INCENTIVE_OWNER_CHECK);
+        }
+
+        // Check de-scaled min <= newLiquidationIncentive <= max
+        Exp memory newLiquidationIncentive = Exp({mantissa: newLiquidationIncentiveMantissa});
+        Exp memory minLiquidationIncentive = Exp({mantissa: liquidationIncentiveMinMantissa});
+        if (lessThanExp(newLiquidationIncentive, minLiquidationIncentive)) {
+            return fail(Error.INVALID_LIQUIDATION_INCENTIVE, FailureInfo.SET_LIQUIDATION_INCENTIVE_VALIDATION);
+        }
+
+        Exp memory maxLiquidationIncentive = Exp({mantissa: liquidationIncentiveMaxMantissa});
+        if (lessThanExp(maxLiquidationIncentive, newLiquidationIncentive)) {
+            return fail(Error.INVALID_LIQUIDATION_INCENTIVE, FailureInfo.SET_LIQUIDATION_INCENTIVE_VALIDATION);
         }
 
         // Save current value for use in log
@@ -1006,35 +1053,13 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Admin function to change the Pause Guardian
-     * @param newPauseGuardian The address of the new Pause Guardian
-     * @return uint 0=success, otherwise a failure. (See enum Error for details)
-     */
-    function _setPauseGuardian(address newPauseGuardian) public returns (uint) {
-        if (msg.sender != admin) {
-            return fail(Error.UNAUTHORIZED, FailureInfo.SET_PAUSE_GUARDIAN_OWNER_CHECK);
-        }
-
-        // Save current value for inclusion in log
-        address oldPauseGuardian = pauseGuardian;
-
-        // Store pauseGuardian with value newPauseGuardian
-        pauseGuardian = newPauseGuardian;
-
-        // Emit NewPauseGuardian(OldPauseGuardian, NewPauseGuardian)
-        emit NewPauseGuardian(oldPauseGuardian, newPauseGuardian);
-
-        return uint(Error.NO_ERROR);
-    }
-
-    /**
       * @notice Set the given borrow caps for the given aToken markets. Borrowing that brings total borrows to or above borrow cap will revert.
       * @dev Admin or borrowCapGuardian function to set the borrow caps. A borrow cap of 0 corresponds to unlimited borrowing.
       * @param aTokens The addresses of the markets (tokens) to change the borrow caps for
       * @param newBorrowCaps The new borrow cap values in underlying to be set. A value of 0 corresponds to unlimited borrowing.
       */
     function _setMarketBorrowCaps(AToken[] calldata aTokens, uint[] calldata newBorrowCaps) external {
-        require(msg.sender == admin || msg.sender == borrowCapGuardian, "only admin or borrow cap guardian can set borrow caps");
+    	require(msg.sender == admin || msg.sender == borrowCapGuardian, "only admin or borrow cap guardian can set borrow caps"); 
 
         uint numMarkets = aTokens.length;
         uint numBorrowCaps = newBorrowCaps.length;
@@ -1051,7 +1076,9 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
      * @notice Admin function to change the Borrow Cap Guardian
      * @param newBorrowCapGuardian The address of the new Borrow Cap Guardian
      */
-    function _setBorrowCapGuardian(address newBorrowCapGuardian) external onlyAdmin {
+    function _setBorrowCapGuardian(address newBorrowCapGuardian) external {
+        require(msg.sender == admin, "only admin can set borrow cap guardian");
+
         // Save current value for inclusion in log
         address oldBorrowCapGuardian = borrowCapGuardian;
 
@@ -1065,7 +1092,7 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     /**
      * @notice Set whole protocol pause/unpause state
      */
-    function _setProtocolPaused(bool state) public validPauseState(state) returns(bool) {
+    function _setProtocolPaused(bool state) public onlyAdmin returns(bool) {
         protocolPaused = state;
         emit ActionProtocolPaused(state);
         return state;
@@ -1100,29 +1127,6 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
         return uint(Error.NO_ERROR);
     }
 
-    function _setTreasuryData(address newTreasuryGuardian, address newTreasuryAddress, uint newTreasuryPercent) external returns (uint) {
-        // Check caller is admin
-        if (!(msg.sender == admin || msg.sender == treasuryGuardian)) {
-            return fail(Error.UNAUTHORIZED, FailureInfo.SET_TREASURY_OWNER_CHECK);
-        }
-
-        require(newTreasuryPercent < 1e18, "treasury percent cap overflow");
-
-        address oldTreasuryGuardian = treasuryGuardian;
-        address oldTreasuryAddress = treasuryAddress;
-        uint oldTreasuryPercent = treasuryPercent;
-
-        treasuryGuardian = newTreasuryGuardian;
-        treasuryAddress = newTreasuryAddress;
-        treasuryPercent = newTreasuryPercent;
-
-        emit NewTreasuryGuardian(oldTreasuryGuardian, newTreasuryGuardian);
-        emit NewTreasuryAddress(oldTreasuryAddress, newTreasuryAddress);
-        emit NewTreasuryPercent(oldTreasuryPercent, newTreasuryPercent);
-
-        return uint(Error.NO_ERROR);
-    }
-
     function _become(Unitroller unitroller) public {
         require(msg.sender == unitroller.admin(), "only unitroller admin can");
         require(unitroller._acceptImplementation() == 0, "not authorized");
@@ -1140,12 +1144,12 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     function setAnnexSpeedInternal(AToken aToken, uint annexSpeed) internal {
         uint currentAnnexSpeed = annexSpeeds[address(aToken)];
         if (currentAnnexSpeed != 0) {
-            // note that ANX speed could be set to 0 to halt liquidity rewards for a market
+            // note that ANN speed could be set to 0 to halt liquidity rewards for a market
             Exp memory borrowIndex = Exp({mantissa: aToken.borrowIndex()});
             updateAnnexSupplyIndex(address(aToken));
             updateAnnexBorrowIndex(address(aToken), borrowIndex);
         } else if (annexSpeed != 0) {
-            // Add the ANX market
+            // Add the ANN market
             Market storage market = markets[address(aToken)];
             require(market.isListed == true, "annex market is not listed");
 
@@ -1172,7 +1176,7 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Accrue ANX to the market by updating the supply index
+     * @notice Accrue ANN to the market by updating the supply index
      * @param aToken The market whose supply index to update
      */
     function updateAnnexSupplyIndex(address aToken) internal {
@@ -1195,7 +1199,7 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Accrue ANX to the market by updating the borrow index
+     * @notice Accrue ANN to the market by updating the borrow index
      * @param aToken The market whose borrow index to update
      */
     function updateAnnexBorrowIndex(address aToken, Exp memory marketBorrowIndex) internal {
@@ -1218,9 +1222,9 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Calculate ANX accrued by a supplier and possibly transfer it to them
+     * @notice Calculate ANN accrued by a supplier and possibly transfer it to them
      * @param aToken The market in which the supplier is interacting
-     * @param supplier The address of the supplier to distribute ANX to
+     * @param supplier The address of the supplier to distribute ANN to
      */
     function distributeSupplierAnnex(address aToken, address supplier) internal {
         if (address(vaiVaultAddress) != address(0)) {
@@ -1245,10 +1249,10 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Calculate ANX accrued by a borrower and possibly transfer it to them
+     * @notice Calculate ANN accrued by a borrower and possibly transfer it to them
      * @dev Borrowers will not begin to accrue until after the first interaction with the protocol.
      * @param aToken The market in which the borrower is interacting
-     * @param borrower The address of the borrower to distribute ANX to
+     * @param borrower The address of the borrower to distribute ANN to
      */
     function distributeBorrowerAnnex(address aToken, address borrower, Exp memory marketBorrowIndex) internal {
         if (address(vaiVaultAddress) != address(0)) {
@@ -1271,11 +1275,11 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Calculate ANX accrued by a VAI minter and possibly transfer it to them
+     * @notice Calculate ANN accrued by a VAI minter and possibly transfer it to them
      * @dev VAI minters will not begin to accrue until after the first interaction with the protocol.
-     * @param vaiMinter The address of the VAI minter to distribute ANX to
+     * @param vaiMinter The address of the VAI minter to distribute ANN to
      */
-    function distributeVAIMinterAnnex(address vaiMinter) public {
+    function distributeVAIMinterAnnex(address vaiMinter, bool distributeAll) public {
         if (address(vaiVaultAddress) != address(0)) {
             releaseToVault();
         }
@@ -1294,17 +1298,17 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Claim all the anx accrued by holder in all markets and VAI
-     * @param holder The address to claim ANX for
+     * @notice Claim all the ann accrued by holder in all markets and VAI
+     * @param holder The address to claim ANN for
      */
     function claimAnnex(address holder) public {
         return claimAnnex(holder, allMarkets);
     }
 
     /**
-     * @notice Claim all the anx accrued by holder in the specified markets
-     * @param holder The address to claim ANX for
-     * @param aTokens The list of markets to claim ANX in
+     * @notice Claim all the ann accrued by holder in the specified markets
+     * @param holder The address to claim ANN for
+     * @param aTokens The list of markets to claim ANN in
      */
     function claimAnnex(address holder, AToken[] memory aTokens) public {
         address[] memory holders = new address[](1);
@@ -1313,11 +1317,11 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Claim all anx accrued by the holders
-     * @param holders The addresses to claim ANX for
-     * @param aTokens The list of markets to claim ANX in
-     * @param borrowers Whether or not to claim ANX earned by borrowing
-     * @param suppliers Whether or not to claim ANX earned by supplying
+     * @notice Claim all ann accrued by the holders
+     * @param holders The addresses to claim ANN for
+     * @param aTokens The list of markets to claim ANN in
+     * @param borrowers Whether or not to claim ANN earned by borrowing
+     * @param suppliers Whether or not to claim ANN earned by supplying
      */
     function claimAnnex(address[] memory holders, AToken[] memory aTokens, bool borrowers, bool suppliers) public {
         uint j;
@@ -1325,8 +1329,8 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
             vaiController.updateAnnexVAIMintIndex();
         }
         for (j = 0; j < holders.length; j++) {
-            distributeVAIMinterAnnex(holders[j]);
-            annexAccrued[holders[j]] = grantANXInternal(holders[j], annexAccrued[holders[j]]);
+            distributeVAIMinterAnnex(holders[j], true);
+            annexAccrued[holders[j]] = grantANNInternal(holders[j], annexAccrued[holders[j]]);
         }
         for (uint i = 0; i < aTokens.length; i++) {
             AToken aToken = aTokens[i];
@@ -1336,31 +1340,31 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
                 updateAnnexBorrowIndex(address(aToken), borrowIndex);
                 for (j = 0; j < holders.length; j++) {
                     distributeBorrowerAnnex(address(aToken), holders[j], borrowIndex);
-                    annexAccrued[holders[j]] = grantANXInternal(holders[j], annexAccrued[holders[j]]);
+                    annexAccrued[holders[j]] = grantANNInternal(holders[j], annexAccrued[holders[j]]);
                 }
             }
             if (suppliers) {
                 updateAnnexSupplyIndex(address(aToken));
                 for (j = 0; j < holders.length; j++) {
                     distributeSupplierAnnex(address(aToken), holders[j]);
-                    annexAccrued[holders[j]] = grantANXInternal(holders[j], annexAccrued[holders[j]]);
+                    annexAccrued[holders[j]] = grantANNInternal(holders[j], annexAccrued[holders[j]]);
                 }
             }
         }
     }
 
     /**
-     * @notice Transfer ANX to the user
-     * @dev Note: If there is not enough ANX, we do not perform the transfer all.
-     * @param user The address of the user to transfer ANX to
-     * @param amount The amount of ANX to (possibly) transfer
-     * @return The amount of ANX which was NOT transferred to the user
+     * @notice Transfer ANN to the user
+     * @dev Note: If there is not enough ANN, we do not perform the transfer all.
+     * @param user The address of the user to transfer ANN to
+     * @param amount The amount of ANN to (possibly) transfer
+     * @return The amount of ANN which was NOT transferred to the user
      */
-    function grantANXInternal(address user, uint amount) internal returns (uint) {
-        ANX anx = ANX(getANXAddress());
-        uint annexRemaining = anx.balanceOf(address(this));
+    function grantANNInternal(address user, uint amount) internal returns (uint) {
+        ANN ann = ANN(getANNAddress());
+        uint annexRemaining = ann.balanceOf(address(this));
         if (amount > 0 && amount <= annexRemaining) {
-            anx.transfer(user, amount);
+            ann.transfer(user, amount);
             return 0;
         }
         return amount;
@@ -1369,20 +1373,24 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     /*** Annex Distribution Admin ***/
 
     /**
-     * @notice Set the amount of ANX distributed per block to VAI Mint
-     * @param annexVAIRate_ The amount of ANX wei per block to distribute to VAI Mint
+     * @notice Set the amount of ANN distributed per block to VAI Mint
+     * @param annexVAIRate_ The amount of ANN wei per block to distribute to VAI Mint
      */
-    function _setAnnexVAIRate(uint annexVAIRate_) public onlyAdmin {
+    function _setAnnexVAIRate(uint annexVAIRate_) public {
+        require(msg.sender == admin, "only admin can");
+
         uint oldVAIRate = annexVAIRate;
         annexVAIRate = annexVAIRate_;
         emit NewAnnexVAIRate(oldVAIRate, annexVAIRate_);
     }
 
     /**
-     * @notice Set the amount of ANX distributed per block to VAI Vault
-     * @param annexVAIVaultRate_ The amount of ANX wei per block to distribute to VAI Vault
+     * @notice Set the amount of ANN distributed per block to VAI Vault
+     * @param annexVAIVaultRate_ The amount of ANN wei per block to distribute to VAI Vault
      */
-    function _setAnnexVAIVaultRate(uint annexVAIVaultRate_) public onlyAdmin {
+    function _setAnnexVAIVaultRate(uint annexVAIVaultRate_) public {
+        require(msg.sender == admin, "only admin can");
+
         uint oldAnnexVAIVaultRate = annexVAIVaultRate;
         annexVAIVaultRate = annexVAIVaultRate_;
         emit NewAnnexVAIVaultRate(oldAnnexVAIVaultRate, annexVAIVaultRate_);
@@ -1394,7 +1402,9 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
      * @param releaseStartBlock_ The start block of release to VAI Vault
      * @param minReleaseAmount_ The minimum release amount to VAI Vault
      */
-    function _setVAIVaultInfo(address vault_, uint256 releaseStartBlock_, uint256 minReleaseAmount_) public onlyAdmin {
+    function _setVAIVaultInfo(address vault_, uint256 releaseStartBlock_, uint256 minReleaseAmount_) public {
+        require(msg.sender == admin, "only admin can");
+
         vaiVaultAddress = vault_;
         releaseStartBlock = releaseStartBlock_;
         minReleaseAmount = minReleaseAmount_;
@@ -1402,9 +1412,9 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Set ANX speed for a single market
-     * @param aToken The market whose ANX speed to update
-     * @param annexSpeed New ANX speed for market
+     * @notice Set ANN speed for a single market
+     * @param aToken The market whose ANN speed to update
+     * @param annexSpeed New ANN speed for market
      */
     function _setAnnexSpeed(AToken aToken, uint annexSpeed) public {
         require(adminOrInitializing(), "only admin can set annex speed");
@@ -1425,10 +1435,10 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Return the address of the ANX token
-     * @return The address of ANX
+     * @notice Return the address of the ANN token
+     * @return The address of ANN
      */
-    function getANXAddress() public view returns (address) {
+    function getANNAddress() public view returns (address) {
         return 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     }
 
@@ -1453,17 +1463,17 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
     }
 
     /**
-     * @notice Transfer ANX to VAI Vault
+     * @notice Transfer ANN to VAI Vault
      */
     function releaseToVault() public {
         if(releaseStartBlock == 0 || getBlockNumber() < releaseStartBlock) {
             return;
         }
 
-        ANX anx = ANX(getANXAddress());
+        ANN ann = ANN(getANNAddress());
 
-        uint256 anxBalance = anx.balanceOf(address(this));
-        if(anxBalance == 0) {
+        uint256 annBalance = ann.balanceOf(address(this));
+        if(annBalance == 0) {
             return;
         }
 
@@ -1477,15 +1487,15 @@ contract Comptroller is ComptrollerV4Storage, ComptrollerInterfaceG2, Comptrolle
             return;
         }
 
-        if (anxBalance >= _releaseAmount) {
+        if (annBalance >= _releaseAmount) {
             actualAmount = _releaseAmount;
         } else {
-            actualAmount = anxBalance;
+            actualAmount = annBalance;
         }
 
         releaseStartBlock = getBlockNumber();
 
-        anx.transfer(vaiVaultAddress, actualAmount);
+        ann.transfer(vaiVaultAddress, actualAmount);
         emit DistributedVAIVaultAnnex(actualAmount);
 
         IVAIVault(vaiVaultAddress).updatePendingRewards();

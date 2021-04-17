@@ -1,12 +1,12 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
-import "../../contracts/VBep20Immutable.sol";
-import "../../contracts/VBep20Delegator.sol";
-import "../../contracts/VBep20Delegate.sol";
-import "../../contracts/VDaiDelegate.sol";
+import "../../contracts/ABep20Immutable.sol";
+import "../../contracts/ABep20Delegator.sol";
+import "../../contracts/ABep20Delegator.sol";
+import "../../contracts/ADaiDelegate.sol";
 import "./ComptrollerScenario.sol";
 
-contract VBep20Harness is VBep20Immutable {
+contract ABep20Harness is ABep20Immutable {
     uint blockNumber = 100000;
     uint harnessExchangeRate;
     bool harnessExchangeRateStored;
@@ -21,7 +21,7 @@ contract VBep20Harness is VBep20Immutable {
                 string memory symbol_,
                 uint8 decimals_,
                 address payable admin_)
-    VBep20Immutable(
+    ABep20Immutable(
     underlying_,
     comptroller_,
     interestRateModel_,
@@ -99,8 +99,8 @@ contract VBep20Harness is VBep20Immutable {
         return err;
     }
 
-    function harnessRedeemFresh(address payable account, uint vTokenAmount, uint underlyingAmount) public returns (uint) {
-        return super.redeemFresh(account, vTokenAmount, underlyingAmount);
+    function harnessRedeemFresh(address payable account, uint aTokenAmount, uint underlyingAmount) public returns (uint) {
+        return super.redeemFresh(account, aTokenAmount, underlyingAmount);
     }
 
     function harnessAccountBorrows(address account) public view returns (uint principal, uint interestIndex) {
@@ -125,8 +125,8 @@ contract VBep20Harness is VBep20Immutable {
         return err;
     }
 
-    function harnessLiquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, VToken vTokenCollateral) public returns (uint) {
-        (uint err,) = liquidateBorrowFresh(liquidator, borrower, repayAmount, vTokenCollateral);
+    function harnessLiquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, AToken aTokenCollateral) public returns (uint) {
+        (uint err,) = liquidateBorrowFresh(liquidator, borrower, repayAmount, aTokenCollateral);
         return err;
     }
 
@@ -151,7 +151,7 @@ contract VBep20Harness is VBep20Immutable {
     }
 }
 
-contract VBep20Scenario is VBep20Immutable {
+contract VBep20Scenario is ABep20Immutable {
     constructor(address underlying_,
                 ComptrollerInterface comptroller_,
                 InterestRateModel interestRateModel_,
@@ -160,7 +160,7 @@ contract VBep20Scenario is VBep20Immutable {
                 string memory symbol_,
                 uint8 decimals_,
                 address payable admin_)
-    VBep20Immutable(
+    ABep20Immutable(
     underlying_,
     comptroller_,
     interestRateModel_,
@@ -203,12 +203,12 @@ contract VEvil is VBep20Scenario {
     decimals_,
     admin_) public {}
 
-    function evilSeize(VToken treasure, address liquidator, address borrower, uint seizeTokens) public returns (uint) {
+    function evilSeize(AToken treasure, address liquidator, address borrower, uint seizeTokens) public returns (uint) {
         return treasure.seize(liquidator, borrower, seizeTokens);
     }
 }
 
-contract VBep20DelegatorScenario is VBep20Delegator {
+contract ABep20DelegatorScenario is ABep20Delegator {
     constructor(address underlying_,
                 ComptrollerInterface comptroller_,
                 InterestRateModel interestRateModel_,
@@ -219,7 +219,7 @@ contract VBep20DelegatorScenario is VBep20Delegator {
                 address payable admin_,
                 address implementation_,
                 bytes memory becomeImplementationData)
-    VBep20Delegator(
+    ABep20Delegator(
     underlying_,
     comptroller_,
     interestRateModel_,
@@ -240,7 +240,7 @@ contract VBep20DelegatorScenario is VBep20Delegator {
     }
 }
 
-contract VBep20DelegateHarness is VBep20Delegate {
+contract ABep20DelegatorHarness is ABep20Delegator {
     event Log(string x, address y);
     event Log(string x, uint y);
 
@@ -322,8 +322,8 @@ contract VBep20DelegateHarness is VBep20Delegate {
         return err;
     }
 
-    function harnessRedeemFresh(address payable account, uint vTokenAmount, uint underlyingAmount) public returns (uint) {
-        return super.redeemFresh(account, vTokenAmount, underlyingAmount);
+    function harnessRedeemFresh(address payable account, uint aTokenAmount, uint underlyingAmount) public returns (uint) {
+        return super.redeemFresh(account, aTokenAmount, underlyingAmount);
     }
 
     function harnessAccountBorrows(address account) public view returns (uint principal, uint interestIndex) {
@@ -348,8 +348,8 @@ contract VBep20DelegateHarness is VBep20Delegate {
         return err;
     }
 
-    function harnessLiquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, VToken vTokenCollateral) public returns (uint) {
-        (uint err,) = liquidateBorrowFresh(liquidator, borrower, repayAmount, vTokenCollateral);
+    function harnessLiquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, AToken aTokenCollateral) public returns (uint) {
+        (uint err,) = liquidateBorrowFresh(liquidator, borrower, repayAmount, aTokenCollateral);
         return err;
     }
 
@@ -374,7 +374,7 @@ contract VBep20DelegateHarness is VBep20Delegate {
     }
 }
 
-contract VBep20DelegateScenario is VBep20Delegate {
+contract ABep20DelegatorScenario is ABep20Delegator {
     constructor() public {}
 
     function setTotalBorrows(uint totalBorrows_) public {
@@ -391,7 +391,7 @@ contract VBep20DelegateScenario is VBep20Delegate {
     }
 }
 
-contract VBep20DelegateScenarioExtra is VBep20DelegateScenario {
+contract ABep20DelegatorScenarioExtra is ABep20DelegatorScenario {
     function iHaveSpoken() public pure returns (string memory) {
       return "i have spoken";
     }
@@ -405,7 +405,7 @@ contract VBep20DelegateScenarioExtra is VBep20DelegateScenario {
     }
 }
 
-contract VDaiDelegateHarness is VDaiDelegate {
+contract ADaiDelegateHarness is ADaiDelegate {
     uint blockNumber = 100000;
     uint harnessExchangeRate;
     bool harnessExchangeRateStored;
@@ -440,7 +440,7 @@ contract VDaiDelegateHarness is VDaiDelegate {
     }
 }
 
-contract VDaiDelegateScenario is VDaiDelegate {
+contract ADaiDelegateScenario is ADaiDelegate {
     function setTotalBorrows(uint totalBorrows_) public {
         totalBorrows = totalBorrows_;
     }
@@ -455,7 +455,7 @@ contract VDaiDelegateScenario is VDaiDelegate {
     }
 }
 
-contract VDaiDelegateMakerHarness is PotLike, VatLike, GemLike, DaiJoinLike {
+contract ADaiDelegateMakerHarness is PotLike, VatLike, GemLike, DaiJoinLike {
     /* Pot */
 
     // exchangeRate

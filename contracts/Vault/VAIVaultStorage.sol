@@ -26,7 +26,7 @@ contract VAIVaultAdminStorage {
 
 contract VAIVaultStorage is VAIVaultAdminStorage {
     /// @notice The ANX TOKEN!
-    IBEP20 public anx;
+    IBEP20 public ann;
 
     /// @notice The VAI TOKEN!
     IBEP20 public vai;
@@ -35,7 +35,7 @@ contract VAIVaultStorage is VAIVaultAdminStorage {
     bool internal _notEntered;
 
     /// @notice ANX balance of vault
-    uint256 public anxBalance;
+    uint256 public annBalance;
 
     /// @notice Accumulated ANX per share
     uint256 public accANXPerShare;

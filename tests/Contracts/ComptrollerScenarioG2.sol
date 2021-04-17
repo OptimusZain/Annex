@@ -1,4 +1,4 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
 import "../../contracts/ComptrollerG2.sol";
 
@@ -16,15 +16,15 @@ contract ComptrollerScenarioG2 is ComptrollerG2 {
         blockNumber = number;
     }
 
-    function membershipLength(VToken vToken) public view returns (uint) {
-        return accountAssets[address(vToken)].length;
+    function membershipLength(AToken aToken) public view returns (uint) {
+        return accountAssets[address(aToken)].length;
     }
 
-    function unlist(VToken vToken) public {
-        markets[address(vToken)].isListed = false;
+    function unlist(AToken aToken) public {
+        markets[address(aToken)].isListed = false;
     }
 
-    function setVenusSpeed(address vToken, uint venusSpeed) public {
-        venusSpeeds[vToken] = venusSpeed;
+    function setAnnexSpeed(address aToken, uint annexSpeed) public {
+        annexSpeeds[aToken] = annexSpeed;
     }
 }

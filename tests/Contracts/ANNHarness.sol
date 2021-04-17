@@ -1,9 +1,9 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
-import "../../contracts/Governance/XVS.sol";
+import "../../contracts/Governance/ANN.sol";
 
-contract XVSScenario is XVS {
-    constructor(address account) XVS(account) public {}
+contract ANNScenario is ANN {
+    constructor(address account) ANN(account) public {}
 
     function transferScenario(address[] calldata destinations, uint256 amount) external returns (bool) {
         for (uint i = 0; i < destinations.length; i++) {

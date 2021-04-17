@@ -136,7 +136,7 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
     }
 
     /**
-     * @notice Accrue ANX to by updating the VAI minter index
+     * @notice Accrue ANN to by updating the VAI minter index
      */
     function updateAnnexVAIMintIndex() public returns (uint) {
         uint vaiMinterSpeed = ComptrollerLensInterface(address(comptroller)).annexVAIRate();
@@ -157,8 +157,8 @@ contract VAIController is VAIControllerStorage, VAIControllerErrorReporter, Expo
     }
 
     /**
-     * @notice Calculate ANX accrued by a VAI minter
-     * @param vaiMinter The address of the VAI minter to distribute ANX to
+     * @notice Calculate ANN accrued by a VAI minter
+     * @param vaiMinter The address of the VAI minter to distribute ANN to
      */
     function calcDistributeVAIMinterAnnex(address vaiMinter) public returns(uint, uint, uint, uint) {
         // Check caller is comptroller

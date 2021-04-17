@@ -40,7 +40,7 @@ contract AnnexPriceOracle is PriceOracle {
         if (compareStrings(aToken.symbol(), "vBNB")) {
             IStdReference.ReferenceData memory data = ref.getReferenceData("BNB", "USD");
             return data.rate;
-        }else if (compareStrings(aToken.symbol(), "ANX")) {
+        }else if (compareStrings(aToken.symbol(), "ANN")) {
             return prices[address(aToken)];
         } else {
             uint256 price;

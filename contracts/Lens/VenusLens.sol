@@ -6,7 +6,7 @@ import "../AToken.sol";
 import "../PriceOracle.sol";
 import "../EIP20Interface.sol";
 import "../Governance/GovernorAlpha.sol";
-import "../Governance/ANX.sol";
+import "../Governance/ANN.sol";
 
 interface ComptrollerLensInterface {
     function markets(address) external view returns (bool, uint);
@@ -254,39 +254,39 @@ contract AnnexLens {
         return res;
     }
 
-    struct ANXBalanceMetadata {
+    struct ANNBalanceMetadata {
         uint balance;
         uint votes;
         address delegate;
     }
 
-    function getANXBalanceMetadata(ANX anx, address account) external view returns (ANXBalanceMetadata memory) {
-        return ANXBalanceMetadata({
-            balance: anx.balanceOf(account),
-            votes: uint256(anx.getCurrentVotes(account)),
-            delegate: anx.delegates(account)
+    function getANNBalanceMetadata(ANN ann, address account) external view returns (ANNBalanceMetadata memory) {
+        return ANNBalanceMetadata({
+            balance: ann.balanceOf(account),
+            votes: uint256(ann.getCurrentVotes(account)),
+            delegate: ann.delegates(account)
         });
     }
 
-    struct ANXBalanceMetadataExt {
+    struct ANNBalanceMetadataExt {
         uint balance;
         uint votes;
         address delegate;
         uint allocated;
     }
 
-    function getANXBalanceMetadataExt(ANX anx, ComptrollerLensInterface comptroller, address account) external returns (ANXBalanceMetadataExt memory) {
-        uint balance = anx.balanceOf(account);
+    function getANNBalanceMetadataExt(ANN ann, ComptrollerLensInterface comptroller, address account) external returns (ANNBalanceMetadataExt memory) {
+        uint balance = ann.balanceOf(account);
         comptroller.claimAnnex(account);
-        uint newBalance = anx.balanceOf(account);
+        uint newBalance = ann.balanceOf(account);
         uint accrued = comptroller.annexAccrued(account);
-        uint total = add(accrued, newBalance, "sum anx total");
+        uint total = add(accrued, newBalance, "sum ann total");
         uint allocated = sub(total, balance, "sub allocated");
 
-        return ANXBalanceMetadataExt({
+        return ANNBalanceMetadataExt({
             balance: balance,
-            votes: uint256(anx.getCurrentVotes(account)),
-            delegate: anx.delegates(account),
+            votes: uint256(ann.getCurrentVotes(account)),
+            delegate: ann.delegates(account),
             allocated: allocated
         });
     }
@@ -296,12 +296,12 @@ contract AnnexLens {
         uint votes;
     }
 
-    function getAnnexVotes(ANX anx, address account, uint32[] calldata blockNumbers) external view returns (AnnexVotes[] memory) {
+    function getAnnexVotes(ANN ann, address account, uint32[] calldata blockNumbers) external view returns (AnnexVotes[] memory) {
         AnnexVotes[] memory res = new AnnexVotes[](blockNumbers.length);
         for (uint i = 0; i < blockNumbers.length; i++) {
             res[i] = AnnexVotes({
                 blockNumber: uint256(blockNumbers[i]),
-                votes: uint256(anx.getPriorVotes(account, blockNumbers[i]))
+                votes: uint256(ann.getPriorVotes(account, blockNumbers[i]))
             });
         }
         return res;

@@ -1,10 +1,10 @@
-pragma solidity ^0.6.12;
+pragma solidity ^0.5.16;
 
 import "./FaucetToken.sol";
 
 /**
   * @title Fee Token
-  * @author Venus
+  * @author Annex
   * @notice A simple test token that charges fees on transfer. Used to mock USDT.
   */
 contract FeeToken is FaucetToken {
