@@ -6,34 +6,34 @@ const {
 } = require('./Utils/BSC');
 
 const {
-  makeVToken,
+  makeAToken,
   makePriceOracle,
-} = require('./Utils/Venus');
+} = require('./Utils/Annex');
 
 describe('PriceOracleProxy', () => {
   let root, accounts;
-  let oracle, backingOracle, vBnb, vUsdc, vSai, vDai, vUsdt, cOther;
+  let oracle, backingOracle, aBnb, aUsdc, aSai, aDai, aUsdt, cOther;
   let daiOracleKey = address(2);
 
   beforeEach(async () => {
     [root, ...accounts] = saddle.accounts;
-    vBnb = await makeVToken({kind: "vbnb", comptrollerOpts: {kind: "v1-no-proxy"}, supportMarket: true});
-    vUsdc = await makeVToken({comptroller: vBnb.comptroller, supportMarket: true});
-    vSai = await makeVToken({comptroller: vBnb.comptroller, supportMarket: true});
-    vDai = await makeVToken({comptroller: vBnb.comptroller, supportMarket: true});
-    vUsdt = await makeVToken({comptroller: vBnb.comptroller, supportMarket: true});
-    cOther = await makeVToken({comptroller: vBnb.comptroller, supportMarket: true});
+    aBnb = await makeAToken({kind: "abnb", comptrollerOpts: {kind: "a1-no-proxy"}, supportMarket: true});
+    aUsdc = await makeAToken({comptroller: aBnb.comptroller, supportMarket: true});
+    aSai = await makeAToken({comptroller: aBnb.comptroller, supportMarket: true});
+    aDai = await makeAToken({comptroller: aBnb.comptroller, supportMarket: true});
+    aUsdt = await makeAToken({comptroller: aBnb.comptroller, supportMarket: true});
+    cOther = await makeAToken({comptroller: aBnb.comptroller, supportMarket: true});
 
     backingOracle = await makePriceOracle();
     oracle = await deploy('PriceOracleProxy',
       [
         root,
         backingOracle._address,
-        vBnb._address,
-        vUsdc._address,
-        vSai._address,
-        vDai._address,
-        vUsdt._address
+        aBnb._address,
+        aUsdc._address,
+        aSai._address,
+        aDai._address,
+        aUsdt._address
       ]
      );
   });
@@ -44,48 +44,48 @@ describe('PriceOracleProxy', () => {
       expect(configuredGuardian).toEqual(root);
     });
 
-    it("sets address of v1 oracle", async () => {
-      let configuredOracle = await call(oracle, "v1PriceOracle");
+    it("sets address of a1 oracle", async () => {
+      let configuredOracle = await call(oracle, "a1PriceOracle");
       expect(configuredOracle).toEqual(backingOracle._address);
     });
 
-    it("sets address of vBnb", async () => {
-      let configuredVBNB = await call(oracle, "vBnbAddress");
-      expect(configuredVBNB).toEqual(vBnb._address);
+    it("sets address of aBnb", async () => {
+      let configuredVBNB = await call(oracle, "aBnbAddress");
+      expect(configuredVBNB).toEqual(aBnb._address);
     });
 
-    it("sets address of vUSDC", async () => {
-      let configuredCUSD = await call(oracle, "vUsdcAddress");
-      expect(configuredCUSD).toEqual(vUsdc._address);
+    it("sets address of aUSDC", async () => {
+      let configuredCUSD = await call(oracle, "aUsdcAddress");
+      expect(configuredCUSD).toEqual(aUsdc._address);
     });
 
-    it("sets address of vSAI", async () => {
-      let configuredCSAI = await call(oracle, "vSaiAddress");
-      expect(configuredCSAI).toEqual(vSai._address);
+    it("sets address of aSAI", async () => {
+      let configuredCSAI = await call(oracle, "aSaiAddress");
+      expect(configuredCSAI).toEqual(aSai._address);
     });
 
-    it("sets address of vDAI", async () => {
-      let configuredVDAI = await call(oracle, "vDaiAddress");
-      expect(configuredVDAI).toEqual(vDai._address);
+    it("sets address of aDAI", async () => {
+      let configuredVDAI = await call(oracle, "aDaiAddress");
+      expect(configuredVDAI).toEqual(aDai._address);
     });
 
-    it("sets address of vUSDT", async () => {
-      let configuredCUSDT = await call(oracle, "vUsdtAddress");
-      expect(configuredCUSDT).toEqual(vUsdt._address);
+    it("sets address of aUSDT", async () => {
+      let configuredCUSDT = await call(oracle, "aUsdtAddress");
+      expect(configuredCUSDT).toEqual(aUsdt._address);
     });
   });
 
   describe("getUnderlyingPrice", () => {
-    let setAndVerifyBackingPrice = async (vToken, price) => {
+    let setAndVerifyBackingPrice = async (aToken, price) => {
       await send(
         backingOracle,
         "setUnderlyingPrice",
-        [vToken._address, bnbMantissa(price)]);
+        [aToken._address, bnbMantissa(price)]);
 
       let backingOraclePrice = await call(
         backingOracle,
         "assetPrices",
-        [vToken.underlying._address]);
+        [aToken.underlying._address]);
 
       expect(Number(backingOraclePrice)).toEqual(price * 1e18);
     };
@@ -95,16 +95,16 @@ describe('PriceOracleProxy', () => {
       expect(Number(proxyPrice)).toEqual(price * 1e18);;
     };
 
-    it("always returns 1e18 for vBnb", async () => {
-      await readAndVerifyProxyPrice(vBnb, 1);
+    it("always returns 1e18 for aBnb", async () => {
+      await readAndVerifyProxyPrice(aBnb, 1);
     });
 
-    it("uses address(1) for USDC and address(2) for vdai", async () => {
+    it("uses address(1) for USDC and address(2) for adai", async () => {
       await send(backingOracle, "setDirectPrice", [address(1), bnbMantissa(5e12)]);
       await send(backingOracle, "setDirectPrice", [address(2), bnbMantissa(8)]);
-      await readAndVerifyProxyPrice(vDai, 8);
-      await readAndVerifyProxyPrice(vUsdc, 5e12);
-      await readAndVerifyProxyPrice(vUsdt, 5e12);
+      await readAndVerifyProxyPrice(aDai, 8);
+      await readAndVerifyProxyPrice(aUsdc, 5e12);
+      await readAndVerifyProxyPrice(aUsdt, 5e12);
     });
 
     it("proxies for whitelisted tokens", async () => {
@@ -116,7 +116,7 @@ describe('PriceOracleProxy', () => {
     });
 
     it("returns 0 for token without a price", async () => {
-      let unlistedToken = await makeVToken({comptroller: vBnb.comptroller});
+      let unlistedToken = await makeAToken({comptroller: aBnb.comptroller});
 
       await readAndVerifyProxyPrice(unlistedToken, 0);
     });
@@ -124,13 +124,13 @@ describe('PriceOracleProxy', () => {
     it("correctly handle setting SAI price", async () => {
       await send(backingOracle, "setDirectPrice", [daiOracleKey, bnbMantissa(0.01)]);
 
-      await readAndVerifyProxyPrice(vDai, 0.01);
-      await readAndVerifyProxyPrice(vSai, 0.01);
+      await readAndVerifyProxyPrice(aDai, 0.01);
+      await readAndVerifyProxyPrice(aSai, 0.01);
 
       await send(oracle, "setSaiPrice", [bnbMantissa(0.05)]);
 
-      await readAndVerifyProxyPrice(vDai, 0.01);
-      await readAndVerifyProxyPrice(vSai, 0.05);
+      await readAndVerifyProxyPrice(aDai, 0.01);
+      await readAndVerifyProxyPrice(aSai, 0.05);
 
       await expect(send(oracle, "setSaiPrice", [1])).rejects.toRevert("revert SAI price may only be set once");
     });

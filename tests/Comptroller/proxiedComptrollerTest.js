@@ -1,6 +1,6 @@
 const { address, bnbMantissa } = require('../Utils/BSC');
 
-const { makeComptroller, makeVToken, makePriceOracle } = require('../Utils/Venus');
+const { makeComptroller, makeAToken, makePriceOracle } = require('../Utils/Annex');
 
 describe('Comptroller', function() {
   let root, accounts;
@@ -29,11 +29,11 @@ describe('Comptroller', function() {
   describe('delegating to comptroller', () => {
     const closeFactor = bnbMantissa(0.051);
     const maxAssets = 10;
-    let unitrollerAsComptroller, vToken;
+    let unitrollerAsComptroller, aToken;
 
     beforeEach(async () => {
       unitrollerAsComptroller = await initializeBrains(oracle, bnbMantissa(0.06), 30);
-      vToken = await makeVToken({ comptroller: unitrollerAsComptroller });
+      aToken = await makeAToken({ comptroller: unitrollerAsComptroller });
     });
 
     describe('becoming brains sets initial state', () => {
@@ -72,7 +72,7 @@ describe('Comptroller', function() {
 
       it('fails if not called by admin', async () => {
         expect(
-          await send(unitrollerAsComptroller, '_setCollateralFactor', [vToken._address, half], {
+          await send(unitrollerAsComptroller, '_setCollateralFactor', [aToken._address, half], {
             from: accounts[1]
           })
         ).toHaveTrollFailure('UNAUTHORIZED', 'SET_COLLATERAL_FACTOR_OWNER_CHECK');
@@ -80,31 +80,31 @@ describe('Comptroller', function() {
 
       it('fails if asset is not listed', async () => {
         expect(
-          await send(unitrollerAsComptroller, '_setCollateralFactor', [vToken._address, half])
+          await send(unitrollerAsComptroller, '_setCollateralFactor', [aToken._address, half])
         ).toHaveTrollFailure('MARKET_NOT_LISTED', 'SET_COLLATERAL_FACTOR_NO_EXISTS');
       });
 
       it('fails if factor is too high', async () => {
-        const vToken = await makeVToken({ supportMarket: true, comptroller: unitrollerAsComptroller });
+        const aToken = await makeAToken({ supportMarket: true, comptroller: unitrollerAsComptroller });
         expect(
-          await send(unitrollerAsComptroller, '_setCollateralFactor', [vToken._address, one])
+          await send(unitrollerAsComptroller, '_setCollateralFactor', [aToken._address, one])
         ).toHaveTrollFailure('INVALID_COLLATERAL_FACTOR', 'SET_COLLATERAL_FACTOR_VALIDATION');
       });
 
       it('fails if factor is set without an underlying price', async () => {
-        const vToken = await makeVToken({ supportMarket: true, comptroller: unitrollerAsComptroller });
+        const aToken = await makeAToken({ supportMarket: true, comptroller: unitrollerAsComptroller });
         expect(
-          await send(unitrollerAsComptroller, '_setCollateralFactor', [vToken._address, half])
+          await send(unitrollerAsComptroller, '_setCollateralFactor', [aToken._address, half])
         ).toHaveTrollFailure('PRICE_ERROR', 'SET_COLLATERAL_FACTOR_WITHOUT_PRICE');
       });
 
       it('succeeds and sets market', async () => {
-        const vToken = await makeVToken({ supportMarket: true, comptroller: unitrollerAsComptroller });
-        await send(oracle, 'setUnderlyingPrice', [vToken._address, 1]);
+        const aToken = await makeAToken({ supportMarket: true, comptroller: unitrollerAsComptroller });
+        await send(oracle, 'setUnderlyingPrice', [aToken._address, 1]);
         expect(
-          await send(unitrollerAsComptroller, '_setCollateralFactor', [vToken._address, half])
+          await send(unitrollerAsComptroller, '_setCollateralFactor', [aToken._address, half])
         ).toHaveLog('NewCollateralFactor', {
-          vToken: vToken._address,
+          aToken: aToken._address,
           oldCollateralFactorMantissa: '0',
           newCollateralFactorMantissa: half.toString()
         });
@@ -114,34 +114,34 @@ describe('Comptroller', function() {
     describe('_supportMarket', () => {
       it('fails if not called by admin', async () => {
         expect(
-          await send(unitrollerAsComptroller, '_supportMarket', [vToken._address], { from: accounts[1] })
+          await send(unitrollerAsComptroller, '_supportMarket', [aToken._address], { from: accounts[1] })
         ).toHaveTrollFailure('UNAUTHORIZED', 'SUPPORT_MARKET_OWNER_CHECK');
       });
 
-      it('fails if asset is not a VToken', async () => {
-        const notAVToken = await makePriceOracle();
-        await expect(send(unitrollerAsComptroller, '_supportMarket', [notAVToken._address])).rejects.toRevert();
+      it('fails if asset is not a AToken', async () => {
+        const notAAToken = await makePriceOracle();
+        await expect(send(unitrollerAsComptroller, '_supportMarket', [notAAToken._address])).rejects.toRevert();
       });
 
       it('succeeds and sets market', async () => {
-        const result = await send(unitrollerAsComptroller, '_supportMarket', [vToken._address]);
-        expect(result).toHaveLog('MarketListed', { vToken: vToken._address });
+        const result = await send(unitrollerAsComptroller, '_supportMarket', [aToken._address]);
+        expect(result).toHaveLog('MarketListed', { aToken: aToken._address });
       });
 
       it('cannot list a market a second time', async () => {
-        const result1 = await send(unitrollerAsComptroller, '_supportMarket', [vToken._address]);
-        const result2 = await send(unitrollerAsComptroller, '_supportMarket', [vToken._address]);
-        expect(result1).toHaveLog('MarketListed', { vToken: vToken._address });
+        const result1 = await send(unitrollerAsComptroller, '_supportMarket', [aToken._address]);
+        const result2 = await send(unitrollerAsComptroller, '_supportMarket', [aToken._address]);
+        expect(result1).toHaveLog('MarketListed', { aToken: aToken._address });
         expect(result2).toHaveTrollFailure('MARKET_ALREADY_LISTED', 'SUPPORT_MARKET_EXISTS');
       });
 
       it('can list two different markets', async () => {
-        const vToken1 = await makeVToken({ comptroller: unitroller });
-        const vToken2 = await makeVToken({ comptroller: unitroller });
-        const result1 = await send(unitrollerAsComptroller, '_supportMarket', [vToken1._address]);
-        const result2 = await send(unitrollerAsComptroller, '_supportMarket', [vToken2._address]);
-        expect(result1).toHaveLog('MarketListed', { vToken: vToken1._address });
-        expect(result2).toHaveLog('MarketListed', { vToken: vToken2._address });
+        const aToken1 = await makeAToken({ comptroller: unitroller });
+        const aToken2 = await makeAToken({ comptroller: unitroller });
+        const result1 = await send(unitrollerAsComptroller, '_supportMarket', [aToken1._address]);
+        const result2 = await send(unitrollerAsComptroller, '_supportMarket', [aToken2._address]);
+        expect(result1).toHaveLog('MarketListed', { aToken: aToken1._address });
+        expect(result2).toHaveLog('MarketListed', { aToken: aToken2._address });
       });
     });
   });

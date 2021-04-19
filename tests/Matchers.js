@@ -29,12 +29,12 @@ function logFormatter(log, reporter=undefined) {
     let valuesFormatted = typeof(values) === 'object'
       ?
         '\n' + Object.entries(values).map(([k, v]) => {
-          let vShow = v;
-          vShow = reporter && k === 'error' ? reporter.ErrorInv[v] : vShow;
-          vShow = reporter && k === 'info' ? reporter.FailureInfoInv[v] : vShow;
-          vShow = reporter && k === 'detail' && reporter.ErrorInv[values['error']] === 'MATH_ERROR' ? MathErr.ErrorInv[v] : vShow;
+          let aShow = v;
+          aShow = reporter && k === 'error' ? reporter.ErrorInv[v] : aShow;
+          aShow = reporter && k === 'info' ? reporter.FailureInfoInv[v] : aShow;
+          aShow = reporter && k === 'detail' && reporter.ErrorInv[values['error']] === 'MATH_ERROR' ? MathErr.ErrorInv[v] : aShow;
 
-          return `\t  ${k}: ${vShow}`;
+          return `\t  ${k}: ${aShow}`;
         }).join("\n")
       :
         values;

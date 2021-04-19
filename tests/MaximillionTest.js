@@ -6,24 +6,24 @@ const {
 
 const {
   makeComptroller,
-  makeVToken,
+  makeAToken,
   makePriceOracle,
   pretendBorrow,
   borrowSnapshot
-} = require('./Utils/Venus');
+} = require('./Utils/Annex');
 
 describe('Maximillion', () => {
   let root, borrower;
-  let maximillion, vBnb;
+  let maximillion, aBnb;
   beforeEach(async () => {
     [root, borrower] = saddle.accounts;
-    vBnb = await makeVToken({kind: "vbnb", supportMarket: true});
-    maximillion = await deploy('Maximillion', [vBnb._address]);
+    aBnb = await makeAToken({kind: "abnb", supportMarket: true});
+    maximillion = await deploy('Maximillion', [aBnb._address]);
   });
 
   describe("constructor", () => {
-    it("sets address of vBnb", async () => {
-      expect(await call(maximillion, "vBnb")).toEqual(vBnb._address);
+    it("sets address of aBnb", async () => {
+      expect(await call(maximillion, "aBnb")).toEqual(aBnb._address);
     });
   });
 
@@ -38,24 +38,24 @@ describe('Maximillion', () => {
     });
 
     it("repays part of a borrow", async () => {
-      await pretendBorrow(vBnb, borrower, 1, 1, 150);
+      await pretendBorrow(aBnb, borrower, 1, 1, 150);
       const beforeBalance = await bnbBalance(root);
       const result = await send(maximillion, "repayBehalf", [borrower], {value: 100});
       const gasCost = await bnbGasCost(result);
       const afterBalance = await bnbBalance(root);
-      const afterBorrowSnap = await borrowSnapshot(vBnb, borrower);
+      const afterBorrowSnap = await borrowSnapshot(aBnb, borrower);
       expect(result).toSucceed();
       expect(afterBalance).toEqualNumber(beforeBalance.sub(gasCost).sub(100));
       expect(afterBorrowSnap.principal).toEqualNumber(50);
     });
 
     it("repays a full borrow and refunds the rest", async () => {
-      await pretendBorrow(vBnb, borrower, 1, 1, 90);
+      await pretendBorrow(aBnb, borrower, 1, 1, 90);
       const beforeBalance = await bnbBalance(root);
       const result = await send(maximillion, "repayBehalf", [borrower], {value: 100});
       const gasCost = await bnbGasCost(result);
       const afterBalance = await bnbBalance(root);
-      const afterBorrowSnap = await borrowSnapshot(vBnb, borrower);
+      const afterBorrowSnap = await borrowSnapshot(aBnb, borrower);
       expect(result).toSucceed();
       expect(afterBalance).toEqualNumber(beforeBalance.sub(gasCost).sub(90));
       expect(afterBorrowSnap.principal).toEqualNumber(0);

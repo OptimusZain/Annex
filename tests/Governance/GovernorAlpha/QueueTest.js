@@ -7,9 +7,9 @@ const {
   mineBlock
 } = require('../../Utils/BSC');
 
-async function enfranchise(xvs, actor, amount) {
-  await send(xvs, 'transfer', [actor, bnbMantissa(amount)]);
-  await send(xvs, 'delegate', [actor], {from: actor});
+async function enfranchise(ann, actor, amount) {
+  await send(ann, 'transfer', [actor, bnbMantissa(amount)]);
+  await send(ann, 'delegate', [actor], {from: actor});
 }
 
 describe('GovernorAlpha#queue/1', () => {
@@ -21,14 +21,14 @@ describe('GovernorAlpha#queue/1', () => {
   describe("overlapping actions", () => {
     it("reverts on queueing overlapping actions in same proposal", async () => {
       const timelock = await deploy('TimelockHarness', [root, 86400 * 2]);
-      const xvs = await deploy('XVS', [root]);
-      const gov = await deploy('GovernorAlpha', [timelock._address, xvs._address, root]);
+      const ann = await deploy('ANN', [root]);
+      const gov = await deploy('GovernorAlpha', [timelock._address, ann._address, root]);
       const txAdmin = await send(timelock, 'harnessSetAdmin', [gov._address]);
 
-      await enfranchise(xvs, a1, 3e6);
+      await enfranchise(ann, a1, 3e6);
       await mineBlock();
 
-      const targets = [xvs._address, xvs._address];
+      const targets = [ann._address, ann._address];
       const values = ["0", "0"];
       const signatures = ["getBalanceOf(address)", "getBalanceOf(address)"];
       const calldatas = [encodeParameters(['address'], [root]), encodeParameters(['address'], [root])];
@@ -45,15 +45,15 @@ describe('GovernorAlpha#queue/1', () => {
 
     it("reverts on queueing overlapping actions in different proposals, works if waiting", async () => {
       const timelock = await deploy('TimelockHarness', [root, 86400 * 2]);
-      const xvs = await deploy('XVS', [root]);
-      const gov = await deploy('GovernorAlpha', [timelock._address, xvs._address, root]);
+      const ann = await deploy('ANN', [root]);
+      const gov = await deploy('GovernorAlpha', [timelock._address, ann._address, root]);
       const txAdmin = await send(timelock, 'harnessSetAdmin', [gov._address]);
 
-      await enfranchise(xvs, a1, 3e6);
-      await enfranchise(xvs, a2, 3e6);
+      await enfranchise(ann, a1, 3e6);
+      await enfranchise(ann, a2, 3e6);
       await mineBlock();
 
-      const targets = [xvs._address];
+      const targets = [ann._address];
       const values = ["0"];
       const signatures = ["getBalanceOf(address)"];
       const calldatas = [encodeParameters(['address'], [root])];

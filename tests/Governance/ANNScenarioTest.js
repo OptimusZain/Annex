@@ -1,11 +1,11 @@
 
-describe('XVSScenario', () => {
+describe('ANNScenario', () => {
   let root, accounts;
-  let xvs;
+  let ann;
 
   beforeEach(async () => {
     [root, ...accounts] = saddle.accounts;
-    xvs = await deploy('XVSScenario', [root]);
+    ann = await deploy('ANNScenario', [root]);
   });
 
   describe('lookup curve', () => {
@@ -22,12 +22,12 @@ describe('XVSScenario', () => {
         let offset = 0;
         while (remaining > 0) {
           let amt = remaining > 1000 ? 1000 : remaining;
-          await xvs.methods.generateCheckpoints(amt, offset).send({from: root, gas: 200000000});
+          await ann.methods.generateCheckpoints(amt, offset).send({from: root, gas: 200000000});
           remaining -= amt;
           offset += amt;
         }
 
-        let result = await xvs.methods.getPriorVotes(root, 1).send();
+        let result = await ann.methods.getPriorVotes(root, 1).send();
 
         await saddle.trace(result, {
           constants: {

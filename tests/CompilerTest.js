@@ -6,11 +6,11 @@ const {
 
 const {
   makeComptroller,
-  makeVToken,
+  makeAToken,
   makePriceOracle,
   pretendBorrow,
   borrowSnapshot
-} = require('./Utils/Venus');
+} = require('./Utils/Annex');
 
 describe('Const', () => {
   it("does the right thing and not too expensive", async () => {

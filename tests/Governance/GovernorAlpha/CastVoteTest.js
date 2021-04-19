@@ -9,25 +9,25 @@ const EIP712 = require('../../Utils/EIP712');
 const BigNumber = require('bignumber.js');
 const chalk = require('chalk');
 
-async function enfranchise(xvs, actor, amount) {
-  await send(xvs, 'transfer', [actor, bnbMantissa(amount)]);
-  await send(xvs, 'delegate', [actor], { from: actor });
+async function enfranchise(ann, actor, amount) {
+  await send(ann, 'transfer', [actor, bnbMantissa(amount)]);
+  await send(ann, 'delegate', [actor], { from: actor });
 }
 
 describe("governorAlpha#castVote/2", () => {
-  let xvs, gov, root, a1, accounts;
+  let ann, gov, root, a1, accounts;
   let targets, values, signatures, callDatas, proposalId;
 
   beforeAll(async () => {
     [root, a1, ...accounts] = saddle.accounts;
-    xvs = await deploy('XVS', [root]);
-    gov = await deploy('GovernorAlpha', [address(0), xvs._address, root]);
+    ann = await deploy('ANN', [root]);
+    gov = await deploy('GovernorAlpha', [address(0), ann._address, root]);
 
     targets = [a1];
     values = ["0"];
     signatures = ["getBalanceOf(address)"];
     callDatas = [encodeParameters(['address'], [a1])];
-    await send(xvs, 'delegate', [root]);
+    await send(ann, 'delegate', [root]);
     await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"]);
     proposalId = await call(gov, 'latestProposalIds', [root]);
   });
@@ -62,7 +62,7 @@ describe("governorAlpha#castVote/2", () => {
 
       it("and we add that ForVotes", async () => {
         actor = accounts[1];
-        await enfranchise(xvs, actor, 400001);
+        await enfranchise(ann, actor, 400001);
 
         await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: actor });
         proposalId = await call(gov, 'latestProposalIds', [actor]);
@@ -77,7 +77,7 @@ describe("governorAlpha#castVote/2", () => {
 
       it("or AgainstVotes corresponding to the caller's support flag.", async () => {
         actor = accounts[3];
-        await enfranchise(xvs, actor, 400001);
+        await enfranchise(ann, actor, 400001);
 
         await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: actor });
         proposalId = await call(gov, 'latestProposalIds', [actor]);;
@@ -109,7 +109,7 @@ describe("governorAlpha#castVote/2", () => {
       });
 
       it('casts vote on behalf of the signatory', async () => {
-        await enfranchise(xvs, a1, 400001);
+        await enfranchise(ann, a1, 400001);
         await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: a1 });
         proposalId = await call(gov, 'latestProposalIds', [a1]);;
 
@@ -128,8 +128,8 @@ describe("governorAlpha#castVote/2", () => {
     it("receipt uses one load", async () => {
       let actor = accounts[2];
       let actor2 = accounts[3];
-      await enfranchise(xvs, actor, 400001);
-      await enfranchise(xvs, actor2, 400001);
+      await enfranchise(ann, actor, 400001);
+      await enfranchise(ann, actor2, 400001);
       await send(gov, 'propose', [targets, values, signatures, callDatas, "do nothing"], { from: actor });
       proposalId = await call(gov, 'latestProposalIds', [actor]);
 
