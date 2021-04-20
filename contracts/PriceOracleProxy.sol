@@ -1,10 +1,10 @@
 pragma solidity ^0.5.16;
 
-import "./VBep20.sol";
+import "./ABep20.sol";
 import "./AToken.sol";
 import "./PriceOracle.sol";
 
-interface V1PriceOracleInterface {
+interface A1PriceOracleInterface {
     function assetPrices(address asset) external view returns (uint);
 }
 
@@ -12,26 +12,26 @@ contract PriceOracleProxy is PriceOracle {
     /// @notice Indicator that this is a PriceOracle contract (for inspection)
     bool public constant isPriceOracle = true;
 
-    /// @notice The v1 price oracle, which will continue to serve prices for v1 assets
-    V1PriceOracleInterface public v1PriceOracle;
+    /// @notice The a1 price oracle, which will continue to serve prices for a1 assets
+    A1PriceOracleInterface public a1PriceOracle;
 
     /// @notice Address of the guardian, which may set the SAI price once
     address public guardian;
 
-    /// @notice Address of the vBnb contract, which has a constant price
-    address public vBnbAddress;
+    /// @notice Address of the aBnb contract, which has a constant price
+    address public aBnbAddress;
 
-    /// @notice Address of the vUSDC contract, which we hand pick a key for
-    address public vUsdcAddress;
+    /// @notice Address of the aUSDC contract, which we hand pick a key for
+    address public aUsdcAddress;
 
-    /// @notice Address of the vUSDT contract, which uses the vUSDC price
-    address public vUsdtAddress;
+    /// @notice Address of the aUSDT contract, which uses the aUSDC price
+    address public aUsdtAddress;
 
-    /// @notice Address of the vSAI contract, which may have its price set
-    address public vSaiAddress;
+    /// @notice Address of the aSAI contract, which may have its price set
+    address public aSaiAddress;
 
-    /// @notice Address of the vDAI contract, which we hand pick a key for
-    address public vDaiAddress;
+    /// @notice Address of the aDAI contract, which we hand pick a key for
+    address public aDaiAddress;
 
     /// @notice Handpicked key for USDC
     address public constant usdcOracleKey = address(1);
@@ -44,28 +44,28 @@ contract PriceOracleProxy is PriceOracle {
 
     /**
      * @param guardian_ The address of the guardian, which may set the SAI price once
-     * @param v1PriceOracle_ The address of the v1 price oracle, which will continue to operate and hold prices for collateral assets
-     * @param vBnbAddress_ The address of vBNB, which will return a constant 1e18, since all prices relative to bnb
-     * @param vUsdcAddress_ The address of vUSDC, which will be read from a special oracle key
-     * @param vSaiAddress_ The address of vSAI, which may be read directly from storage
-     * @param vDaiAddress_ The address of vDAI, which will be read from a special oracle key
-     * @param vUsdtAddress_ The address of vUSDT, which uses the vUSDC price
+     * @param a1PriceOracle_ The address of the a1 price oracle, which will continue to operate and hold prices for collateral assets
+     * @param aBnbAddress_ The address of aBNB, which will return a constant 1e18, since all prices relative to bnb
+     * @param aUsdcAddress_ The address of aUSDC, which will be read from a special oracle key
+     * @param aSaiAddress_ The address of aSAI, which may be read directly from storage
+     * @param aDaiAddress_ The address of aDAI, which will be read from a special oracle key
+     * @param aUsdtAddress_ The address of aUSDT, which uses the aUSDC price
      */
     constructor(address guardian_,
-                address v1PriceOracle_,
-                address vBnbAddress_,
-                address vUsdcAddress_,
-                address vSaiAddress_,
-                address vDaiAddress_,
-                address vUsdtAddress_) public {
+                address a1PriceOracle_,
+                address aBnbAddress_,
+                address aUsdcAddress_,
+                address aSaiAddress_,
+                address aDaiAddress_,
+                address aUsdtAddress_) public {
         guardian = guardian_;
-        v1PriceOracle = V1PriceOracleInterface(v1PriceOracle_);
+        a1PriceOracle = A1PriceOracleInterface(a1PriceOracle_);
 
-        vBnbAddress = vBnbAddress_;
-        vUsdcAddress = vUsdcAddress_;
-        vSaiAddress = vSaiAddress_;
-        vDaiAddress = vDaiAddress_;
-        vUsdtAddress = vUsdtAddress_;
+        aBnbAddress = aBnbAddress_;
+        aUsdcAddress = aUsdcAddress_;
+        aSaiAddress = aSaiAddress_;
+        aDaiAddress = aDaiAddress_;
+        aUsdtAddress = aUsdtAddress_;
     }
 
     /**
@@ -76,27 +76,27 @@ contract PriceOracleProxy is PriceOracle {
     function getUnderlyingPrice(AToken aToken) public view returns (uint) {
         address aTokenAddress = address(aToken);
 
-        if (aTokenAddress == vBnbAddress) {
+        if (aTokenAddress == aBnbAddress) {
             // bnb always worth 1
             return 1e18;
         }
 
-        if (aTokenAddress == vUsdcAddress || aTokenAddress == vUsdtAddress) {
-            return v1PriceOracle.assetPrices(usdcOracleKey);
+        if (aTokenAddress == aUsdcAddress || aTokenAddress == aUsdtAddress) {
+            return a1PriceOracle.assetPrices(usdcOracleKey);
         }
 
-        if (aTokenAddress == vDaiAddress) {
-            return v1PriceOracle.assetPrices(daiOracleKey);
+        if (aTokenAddress == aDaiAddress) {
+            return a1PriceOracle.assetPrices(daiOracleKey);
         }
 
-        if (aTokenAddress == vSaiAddress) {
+        if (aTokenAddress == aSaiAddress) {
             // use the frozen SAI price if set, otherwise use the DAI price
-            return saiPrice > 0 ? saiPrice : v1PriceOracle.assetPrices(daiOracleKey);
+            return saiPrice > 0 ? saiPrice : a1PriceOracle.assetPrices(daiOracleKey);
         }
 
-        // otherwise just read from v1 oracle
-        address underlying = VBep20(aTokenAddress).underlying();
-        return v1PriceOracle.assetPrices(underlying);
+        // otherwise just read from a1 oracle
+        address underlying = ABep20(aTokenAddress).underlying();
+        return a1PriceOracle.assetPrices(underlying);
     }
 
     /**

@@ -1,9 +1,9 @@
 pragma solidity ^0.5.16;
 
-import "../../contracts/VBNB.sol";
+import "../../contracts/ABNB.sol";
 import "./ComptrollerScenario.sol";
 
-contract ABNBHarness is VBNB {
+contract ABNBHarness is ABNB {
     uint harnessExchangeRate;
     uint public blockNumber = 100000;
 
@@ -16,7 +16,7 @@ contract ABNBHarness is VBNB {
                 string memory symbol_,
                 uint8 decimals_,
                 address payable admin_)
-    VBNB(
+    ABNB(
     comptroller_,
     interestRateModel_,
     initialExchangeRateMantissa,
@@ -156,7 +156,7 @@ contract ABNBHarness is VBNB {
     }
 }
 
-contract VBNBScenario is VBNB {
+contract ABNBScenario is ABNB {
     uint reserveFactor;
 
     constructor(string memory name_,
@@ -166,7 +166,7 @@ contract VBNBScenario is VBNB {
                 ComptrollerInterface comptroller_,
                 InterestRateModel interestRateModel_,
                 uint initialExchangeRateMantissa)
-        VBNB(comptroller_,
+        ABNB(comptroller_,
                interestRateModel_,
                initialExchangeRateMantissa,
                name_,
